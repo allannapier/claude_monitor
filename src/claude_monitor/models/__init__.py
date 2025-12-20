@@ -106,6 +106,7 @@ class Plugin:
     license: Optional[str] = None
     keywords: List[str] = field(default_factory=list)
     enabled: bool = True
+    features: Dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -118,6 +119,7 @@ class Plugin:
             'license': self.license,
             'keywords': self.keywords,
             'enabled': self.enabled,
+            'features': self.features,
         }
 
 
