@@ -284,38 +284,103 @@ class ConfigurationScanner:
             return None
 
     def _parse_mcps(self, project_claude_dir: Path, user_claude_dir: Path) -> List[MCP]:
-        """Parse MCP server configurations from plugins."""
+        """Parse MCP server configurations from plugins and settings files."""
         mcps = []
+        mcp_servers = set()  # Track unique MCP server names
 
+        # Parse MCPs from user settings.json
+        user_settings_file = user_claude_dir / "settings.json"
+        if user_settings_file.exists():
+            try:
+                with open(user_settings_file, 'r', encoding='utf-8') as f:
+                    settings_data = json.load(f)
+                    mcp_servers.update(self._extract_mcp_servers_from_permissions(settings_data))
+            except Exception:
+                pass
+
+        # Parse MCPs from project settings.local.json
+        project_settings_file = project_claude_dir / "settings.local.json"
+        if project_settings_file.exists():
+            try:
+                with open(project_settings_file, 'r', encoding='utf-8') as f:
+                    settings_data = json.load(f)
+                    mcp_servers.update(self._extract_mcp_servers_from_permissions(settings_data))
+            except Exception:
+                pass
+
+        # Create MCP objects for discovered servers from settings
+        # Determine source based on where they were found
+        for server_name in sorted(mcp_servers):
+            # Check if it's in project settings
+            source = ConfigSource.PROJECT
+            if project_settings_file.exists():
+                try:
+                    with open(project_settings_file, 'r', encoding='utf-8') as f:
+                        project_data = json.load(f)
+                        project_mcps = self._extract_mcp_servers_from_permissions(project_data)
+                        if server_name in project_mcps:
+                            source = ConfigSource.PROJECT
+                        else:
+                            source = ConfigSource.USER
+                except Exception:
+                    source = ConfigSource.USER
+            else:
+                source = ConfigSource.USER
+
+            mcps.append(MCP(
+                name=server_name,
+                command='',  # Not available from permissions list
+                args=[],
+                source=source,
+                plugin_path=None
+            ))
+
+        # Also parse MCPs from plugin .mcp.json files
         installed_plugins_file = user_claude_dir / "plugins" / "installed_plugins.json"
-        if not installed_plugins_file.exists():
-            return mcps
+        if installed_plugins_file.exists():
+            try:
+                with open(installed_plugins_file, 'r', encoding='utf-8') as f:
+                    plugins_data = json.load(f)
 
-        try:
-            with open(installed_plugins_file, 'r', encoding='utf-8') as f:
-                plugins_data = json.load(f)
-
-            for plugin_name, versions in plugins_data.get('plugins', {}).items():
-                if versions:
-                    latest_version = versions[0]
-                    install_path = Path(latest_version.get('installPath', ''))
-                    if install_path.exists():
-                        mcp_config_file = install_path / ".mcp.json"
-                        if mcp_config_file.exists():
-                            with open(mcp_config_file, 'r', encoding='utf-8') as mcp_f:
-                                mcp_config = json.load(mcp_f)
-                                for server_name, config in mcp_config.items():
-                                    mcps.append(MCP(
-                                        name=server_name,
-                                        command=config.get('command', ''),
-                                        args=config.get('args', []),
-                                        source=ConfigSource.PLUGIN,
-                                        plugin_path=install_path
-                                    ))
-        except Exception:
-            pass
+                for plugin_name, versions in plugins_data.get('plugins', {}).items():
+                    if versions:
+                        latest_version = versions[0]
+                        install_path = Path(latest_version.get('installPath', ''))
+                        if install_path.exists():
+                            mcp_config_file = install_path / ".mcp.json"
+                            if mcp_config_file.exists():
+                                with open(mcp_config_file, 'r', encoding='utf-8') as mcp_f:
+                                    mcp_config = json.load(mcp_f)
+                                    for server_name, config in mcp_config.items():
+                                        # Only add if not already found in settings
+                                        if server_name not in mcp_servers:
+                                            mcps.append(MCP(
+                                                name=server_name,
+                                                command=config.get('command', ''),
+                                                args=config.get('args', []),
+                                                source=ConfigSource.PLUGIN,
+                                                plugin_path=install_path
+                                            ))
+            except Exception:
+                pass
 
         return mcps
+
+    def _extract_mcp_servers_from_permissions(self, settings_data: dict) -> set:
+        """Extract MCP server names from permissions list."""
+        mcp_servers = set()
+        permissions = settings_data.get('permissions', {})
+
+        for perm_type in ['allow', 'deny', 'ask']:
+            for permission in permissions.get(perm_type, []):
+                if isinstance(permission, str) and permission.startswith('mcp__'):
+                    # Format: mcp__<server_name>__<tool_name>
+                    parts = permission.split('__')
+                    if len(parts) >= 3:
+                        server_name = parts[1]
+                        mcp_servers.add(server_name)
+
+        return mcp_servers
 
     def _parse_commands(self, project_claude_dir: Path, user_claude_dir: Path) -> List[Command]:
         """Parse slash commands from user and project directories."""
