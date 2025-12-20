@@ -124,21 +124,29 @@ class Plugin:
 @dataclass
 class Hook:
     """Hook configuration."""
-    description: str
+    name: str
+    hook_type: str
     triggers: List[str]
-    matchers: List[str]
-    handler: str
+    matchers: Optional[List[str]]
+    handler_type: str
+    handler_path: Optional[Path]
     source: ConfigSource
+    plugin_name: Optional[str] = None
     config: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'description': self.description,
+            'name': self.name,
+            'description': self.name,  # Use name as description for compatibility
+            'hook_type': self.hook_type,
             'triggers': self.triggers,
-            'matchers': self.matchers,
-            'handler': self.handler,
+            'matchers': self.matchers or [],
+            'handler': str(self.handler_path) if self.handler_path else self.handler_type,
+            'handler_type': self.handler_type,
+            'handler_path': str(self.handler_path) if self.handler_path else None,
             'source': self.source.value,
+            'plugin_name': self.plugin_name,
             'config': self.config,
         }
 

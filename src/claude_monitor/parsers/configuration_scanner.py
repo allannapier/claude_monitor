@@ -501,34 +501,49 @@ class ConfigurationScanner:
         return hooks
 
     def _parse_agents(self, project_claude_dir: Path, user_claude_dir: Path) -> List[Agent]:
-        """Parse agents from plugins."""
+        """Parse agents from user directory, project directory, and plugins."""
         agents = []
 
+        # Parse user-level agents from ~/.claude/agents/
+        user_agents_dir = user_claude_dir / "agents"
+        if user_agents_dir.exists():
+            for agent_file in user_agents_dir.glob("*.md"):
+                agent = self._parse_agent_file(agent_file, ConfigSource.USER)
+                if agent:
+                    agents.append(agent)
+
+        # Parse project-level agents from .claude/agents/
+        project_agents_dir = project_claude_dir / "agents"
+        if project_agents_dir.exists():
+            for agent_file in project_agents_dir.glob("*.md"):
+                agent = self._parse_agent_file(agent_file, ConfigSource.PROJECT)
+                if agent:
+                    agents.append(agent)
+
+        # Parse plugin agents
         installed_plugins_file = user_claude_dir / "plugins" / "installed_plugins.json"
-        if not installed_plugins_file.exists():
-            return agents
+        if installed_plugins_file.exists():
+            try:
+                with open(installed_plugins_file, 'r', encoding='utf-8') as f:
+                    plugins_data = json.load(f)
 
-        try:
-            with open(installed_plugins_file, 'r', encoding='utf-8') as f:
-                plugins_data = json.load(f)
+                for plugin_name, versions in plugins_data.get('plugins', {}).items():
+                    if versions:
+                        latest_version = versions[0]
+                        install_path = Path(latest_version.get('installPath', ''))
+                        agents_dir = install_path / "agents"
 
-            for plugin_name, versions in plugins_data.get('plugins', {}).items():
-                if versions:
-                    latest_version = versions[0]
-                    install_path = Path(latest_version.get('installPath', ''))
-                    agents_dir = install_path / "agents"
-
-                    if agents_dir.exists():
-                        for agent_file in agents_dir.glob("*.md"):
-                            agent = self._parse_agent_file(agent_file)
-                            if agent:
-                                agents.append(agent)
-        except Exception:
-            pass
+                        if agents_dir.exists():
+                            for agent_file in agents_dir.glob("*.md"):
+                                agent = self._parse_agent_file(agent_file, ConfigSource.PLUGIN)
+                                if agent:
+                                    agents.append(agent)
+            except Exception:
+                pass
 
         return agents
 
-    def _parse_agent_file(self, agent_file: Path) -> Optional[Agent]:
+    def _parse_agent_file(self, agent_file: Path, source: ConfigSource) -> Optional[Agent]:
         """Parse an agent file."""
         try:
             with open(agent_file, 'r', encoding='utf-8') as f:
@@ -569,12 +584,12 @@ class ConfigurationScanner:
             return Agent(
                 name=agent_file.stem,
                 description=description,
-                source=ConfigSource.PLUGIN,
+                source=source,
                 path=agent_file,
                 model=model,
                 color=color,
                 tools=tools,
-                content=content
+                instructions=content
             )
         except Exception:
             return None
