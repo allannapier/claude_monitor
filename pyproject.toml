@@ -1,7 +1,7 @@
 [project]
 name = "claude-monitor"
-version = "0.1.0"
-description = "CLI tool to track and analyze Claude Code usage metrics"
+version = "1.0.0"
+description = "Web-based usage monitoring tool for Claude Code"
 authors = [{name = "Allan Napier"}]
 readme = "README.md"
 requires-python = ">=3.9"
@@ -9,7 +9,8 @@ dependencies = [
     "click>=8.1.0",
     "rich>=13.0.0",
     "python-dateutil>=2.8.0",
-    "flask>=2.3.0",
+    "Flask>=3.0.0",
+    "Jinja2>=3.1.0",
 ]
 
 [project.scripts]
