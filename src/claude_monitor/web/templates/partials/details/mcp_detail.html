@@ -1,0 +1,105 @@
+<!-- MCP Detail Template -->
+<div class="bg-white border border-gray-200 rounded-lg shadow-lg p-6 mt-6">
+    <!-- Header -->
+    <div class="flex items-start justify-between mb-6 border-b border-gray-200 pb-4">
+        <div class="flex-1">
+            <div class="flex items-center gap-3 mb-2">
+                <svg class="w-8 h-8 text-[#0770E3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                <div>
+                    <h3 class="text-2xl font-bold text-gray-900">{{ feature.name }}</h3>
+                    <p class="text-sm text-gray-500">MCP Server</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Source Badge -->
+        <div class="flex-shrink-0 ml-4">
+            <span class="px-3 py-1 text-sm rounded-full {% if feature.source == 'user' %}bg-blue-100 text-blue-800{% elif feature.source == 'plugin' %}bg-purple-100 text-purple-800{% else %}bg-green-100 text-green-800{% endif %}">
+                {{ feature.source|upper }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Command Section -->
+    <div class="mb-6">
+        <h4 class="text-lg font-semibold text-gray-900 mb-3">Command</h4>
+        <div class="bg-gray-900 rounded-lg p-4">
+            <code class="text-sm text-green-400 font-mono">{{ feature.command }}</code>
+        </div>
+    </div>
+
+    <!-- Arguments Section -->
+    {% if feature.args %}
+    <div class="mb-6">
+        <h4 class="text-lg font-semibold text-gray-900 mb-3">Arguments</h4>
+        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <pre class="text-sm text-gray-800 font-mono whitespace-pre-wrap overflow-x-auto"><code>{{ feature.args|tojson(indent=2) }}</code></pre>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Environment Variables -->
+    {% if feature.env %}
+    <div class="mb-6">
+        <h4 class="text-lg font-semibold text-gray-900 mb-3">Environment Variables</h4>
+        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <div class="space-y-2">
+                {% for key, value in feature.env.items() %}
+                <div class="flex items-start gap-3">
+                    <span class="text-sm font-mono font-semibold text-gray-700">{{ key }}:</span>
+                    <span class="text-sm font-mono text-gray-600">{{ value }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Metadata -->
+    <div class="grid grid-cols-1 gap-4 mb-6">
+        {% if feature.plugin_path %}
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="text-sm font-medium text-gray-500 mb-1">Plugin Path</div>
+            <div class="text-sm text-gray-900 font-mono break-all">{{ feature.plugin_path }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Inheritance Chain -->
+    {% if feature.inheritance and feature.inheritance.levels|length > 1 %}
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+        <div class="flex items-center gap-2 mb-3">
+            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <h4 class="text-sm font-semibold text-amber-900">Inheritance Chain</h4>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            {% for level in feature.inheritance.levels %}
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-1 text-xs rounded {% if level.source == 'user' %}bg-blue-200 text-blue-900{% elif level.source == 'plugin' %}bg-purple-200 text-purple-900{% else %}bg-green-200 text-green-900{% endif %}">
+                    {{ level.source|upper }}
+                </span>
+                {% if not loop.last %}
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% if feature.inheritance.winner %}
+        <p class="text-xs text-amber-700 mt-2">Active configuration from: <strong>{{ feature.inheritance.winner|upper }}</strong></p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Close Button -->
+    <div class="flex justify-end pt-4 border-t border-gray-200">
+        <button onclick="document.getElementById('detail-panel').innerHTML = ''" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+            Close
+        </button>
+    </div>
+</div>

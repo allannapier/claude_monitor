@@ -1,0 +1,92 @@
+<!-- Skill Detail Template -->
+<div class="bg-white border border-gray-200 rounded-lg shadow-lg p-6 mt-6">
+    <!-- Header -->
+    <div class="flex items-start justify-between mb-6 border-b border-gray-200 pb-4">
+        <div class="flex-1">
+            <div class="flex items-center gap-3 mb-2">
+                <svg class="w-8 h-8 text-[#0770E3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
+                <div>
+                    <h3 class="text-2xl font-bold text-gray-900">{{ feature.name }}</h3>
+                    {% if feature.version %}
+                    <p class="text-sm text-gray-500">Version {{ feature.version }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            <p class="text-gray-600">{{ feature.description }}</p>
+        </div>
+
+        <!-- Source Badge -->
+        <div class="flex-shrink-0 ml-4">
+            <span class="px-3 py-1 text-sm rounded-full {% if feature.source == 'user' %}bg-blue-100 text-blue-800{% elif feature.source == 'plugin' %}bg-purple-100 text-purple-800{% else %}bg-green-100 text-green-800{% endif %}">
+                {{ feature.source|upper }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Metadata -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="text-sm font-medium text-gray-500 mb-1">File Path</div>
+            <div class="text-sm text-gray-900 font-mono break-all">{{ feature.path }}</div>
+        </div>
+
+        {% if feature.agents %}
+        <div class="bg-gray-50 rounded-lg p-4">
+            <div class="text-sm font-medium text-gray-500 mb-1">Referenced Agents</div>
+            <div class="flex flex-wrap gap-2 mt-2">
+                {% for agent in feature.agents %}
+                <span class="px-2 py-1 bg-[#0770E3] bg-opacity-10 text-[#0770E3] rounded text-xs">{{ agent }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Inheritance Chain -->
+    {% if feature.inheritance and feature.inheritance.levels|length > 1 %}
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+        <div class="flex items-center gap-2 mb-3">
+            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <h4 class="text-sm font-semibold text-amber-900">Inheritance Chain</h4>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            {% for level in feature.inheritance.levels %}
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-1 text-xs rounded {% if level.source == 'user' %}bg-blue-200 text-blue-900{% elif level.source == 'plugin' %}bg-purple-200 text-purple-900{% else %}bg-green-200 text-green-900{% endif %}">
+                    {{ level.source|upper }}
+                </span>
+                {% if not loop.last %}
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% if feature.inheritance.winner %}
+        <p class="text-xs text-amber-700 mt-2">Active configuration from: <strong>{{ feature.inheritance.winner|upper }}</strong></p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Full Content -->
+    {% if feature.full_content or feature.content %}
+    <div class="mb-6">
+        <h4 class="text-lg font-semibold text-gray-900 mb-3">Skill Content</h4>
+        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <pre class="text-sm text-gray-800 whitespace-pre-wrap overflow-x-auto"><code>{{ feature.full_content or feature.content }}</code></pre>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Close Button -->
+    <div class="flex justify-end pt-4 border-t border-gray-200">
+        <button onclick="document.getElementById('detail-panel').innerHTML = ''" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+            Close
+        </button>
+    </div>
+</div>
