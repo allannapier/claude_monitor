@@ -207,16 +207,67 @@ class DashboardService:
 
         breakdown = analyzer.get_project_breakdown()
 
-        # Convert to list of dicts for easier JSON serialization
+        # Get token breakdown for cost and token data
+        token_analyzer = self._token_analyzer
+        if time_filter:
+            token_analyzer = self._create_time_filtered_service(time_filter)._token_analyzer
+        token_breakdown = token_analyzer.get_project_breakdown()
+
+        # Convert to list of dicts with field names expected by template
+        projects_data = []
+        total_cost = 0.0
+        most_active_project = None
+        max_commands = 0
+
+        for project_path, project_data in breakdown.items():
+            # Get token data for this project
+            token_summary = token_breakdown.get(project_path)
+            total_tokens = 0
+            cost = 0.0
+
+            if token_summary:
+                total_tokens = (
+                    token_summary.total_tokens.input_tokens +
+                    token_summary.total_tokens.output_tokens +
+                    token_summary.total_tokens.cache_creation_input_tokens +
+                    token_summary.total_tokens.cache_read_input_tokens
+                )
+                cost = token_summary.total_cost
+                total_cost += cost
+
+            # Determine most active project (by commands)
+            if project_data['commands'] > max_commands:
+                max_commands = project_data['commands']
+                most_active_project = project_data['name']
+
+            projects_data.append({
+                'path': project_path,
+                'name': project_data['name'],
+                'full_path': project_data['full_path'],
+                # Field names expected by template
+                'command_count': project_data['commands'],
+                'session_count': project_data['sessions'],
+                'message_count': project_data['messages'],
+                'total_tokens': total_tokens,
+                'total_cost': cost,
+                # Keep original names for backward compatibility
+                'commands': project_data['commands'],
+                'sessions': project_data['sessions'],
+                'messages': project_data['messages'],
+            })
+
+        # Sort by command count (descending)
+        projects_data.sort(key=lambda x: x['command_count'], reverse=True)
+
+        # Calculate average commands per project
+        avg_commands = sum(p['command_count'] for p in projects_data) / len(projects_data) if projects_data else 0
+
         return {
-            'projects': [
-                {
-                    'path': project_path,
-                    **project_data
-                }
-                for project_path, project_data in breakdown.items()
-            ],
-            'total_projects': len(breakdown)
+            'projects': projects_data,
+            'total_projects': len(projects_data),
+            'total_cost': round(total_cost, 2),
+            'avg_commands_per_project': round(avg_commands, 1),
+            'most_active_project': most_active_project or 'N/A'
         }
 
     # ========== Public Methods for Token Data ==========
