@@ -1,239 +1,283 @@
 # Claude Monitor
 
-A comprehensive CLI tool for tracking and analyzing your Claude Code usage metrics.
+![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Maintained](https://img.shields.io/badge/Maintained%3F-yes-green.svg)
+
+**Web-based usage monitoring and analytics for Claude Code**
+
+Track your Claude Code usage, token consumption, costs, and productivity metrics through an intuitive web dashboard. Monitor cache efficiency, analyze project breakdowns, and optimize your AI-assisted development workflow.
+
+## Overview
+
+Claude Monitor provides comprehensive analytics for your Claude Code usage by reading local data files and presenting insights through a clean web interface. No API keys required, no data sent externally—everything runs locally on your machine.
+
+**Key Benefits:**
+- 📊 **Visual Analytics**: Modern web dashboard with detailed metrics
+- 💰 **Cost Tracking**: Monitor spending and cache savings in real-time
+- 🚀 **Performance Insights**: Identify optimization opportunities
+- 📁 **Project Breakdown**: See which projects consume the most resources
+- 🔧 **Tool Analytics**: Track sub-agent and MCP integration usage
 
 ## Features
 
-- **Interactive Menu**: Beautiful entry page with logo and menu for easy navigation
-- **Usage Metrics**: Track sessions, commands, messages, and active projects
-- **Token Analysis**: Detailed token usage breakdown with cost calculations
-- **Cache Efficiency**: Monitor prompt caching performance and savings
-- **Project Breakdown**: Per-project metrics and activity tracking
-- **MCP Integrations**: Track usage of MCP servers (GitHub, Atlassian, etc.)
-- **File Editing**: See your most frequently edited files
-- **Time Filtering**: Filter by today, week, month, year, or custom date ranges
-- **Rich CLI Display**: Beautiful tables, charts, and color-coded output
+### Dashboard Pages
 
-## Installation
+- **Overview Dashboard**: At-a-glance summary of all key metrics
+- **Token Usage**: Detailed breakdown of input, output, cache reads/writes with cost calculations
+- **Projects**: Per-project analytics showing sessions, commands, and token usage
+- **Files**: Most frequently edited files and operation statistics
+- **Integrations**: MCP server usage and activity tracking
+- **Features**: Tool usage, sub-agents, skills, and configuration analytics
+
+### Capabilities
+
+- **Real-time Monitoring**: Live data from your Claude Code usage
+- **Cost Analysis**: Track spending with Claude Sonnet 4.5 pricing
+- **Cache Efficiency**: Monitor prompt cache performance and savings
+- **Time Filtering**: View metrics by today, week, month, or all-time
+- **Data Export**: Export metrics to CSV or JSON format
+- **Zero Configuration**: Works automatically with Claude Code data
+
+## Quick Start
+
+### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/Skyscanner/claude_monitor.git
+git clone https://github.com/allannapier/claude_monitor.git
 cd claude_monitor
 
-# Install dependencies
-pip install -r requirements.txt
-```
-
-Alternatively, you can install it as a package:
-
-```bash
-# Install in editable mode (recommended for development)
-pip install -e .
-
-# Or install normally
+# Install the package
 pip install .
+
+# Or install in development mode
+pip install -e .
 ```
 
-After installation, you can run it directly with:
+### Running
+
 ```bash
+# Start the web server (default port 5000)
 claude-monitor
+
+# Open your browser to http://localhost:5000
 ```
+
+That's it! The dashboard will load your Claude Code usage data automatically.
 
 ## Usage
 
-### Interactive Mode (Recommended)
-
-Simply run the tool without arguments to launch the interactive menu:
+### Basic Commands
 
 ```bash
-python3 -m src.claude_monitor.cli
+# Start server on default port 5000
+claude-monitor
+
+# Start on custom port
+claude-monitor --port 8080
+
+# Bind to all network interfaces (allow external access)
+claude-monitor --host 0.0.0.0
+
+# Enable debug mode with auto-reload
+claude-monitor --debug
+
+# Use custom Claude data directory
+claude-monitor --claude-dir /path/to/claude/data
 ```
 
-The interactive menu features:
-- **Claude Monitor Logo**: Styled in Skyscanner blue
-- **View Selection**: Choose from Full Dashboard, Token Usage, Activity Report, Integrations, or File History
-- **Time Range Selection**: Today, Last 7 days, Last 30 days, Current quarter, Last year, or All time
+### Web Interface
 
-### Command Line Options
+Once the server is running, navigate to:
 
-You can also use CLI flags for direct access:
+- **http://localhost:5000** - Main dashboard
+- **http://localhost:5000/tokens** - Token usage details
+- **http://localhost:5000/projects** - Project analytics
+- **http://localhost:5000/files** - File operation stats
+- **http://localhost:5000/integrations** - MCP integrations
+- **http://localhost:5000/features** - Tool and feature usage
 
-```bash
-# Show full dashboard (all-time)
-python3 -m src.claude_monitor.cli --no-interactive
+### Data Export
 
-# Show last 7 days
-python3 -m src.claude_monitor.cli --week
+Export your metrics for further analysis:
 
-# Show last 30 days
-python3 -m src.claude_monitor.cli --month
+- **CSV Export**: http://localhost:5000/export/csv
+- **JSON Export**: http://localhost:5000/export/json
 
-# Show current quarter (Q1: Jan-Mar, Q2: Apr-Jun, Q3: Jul-Sep, Q4: Oct-Dec)
-python3 -m src.claude_monitor.cli --quarter
+## Screenshots
 
-# Show only today
-python3 -m src.claude_monitor.cli --today
-
-# Show since a specific date
-python3 -m src.claude_monitor.cli --since 2025-01-01
-```
-
-### Focus on Specific Metrics
-
-```bash
-# Show only token usage and costs
-python3 -m src.claude_monitor.cli --focus tokens
-
-# Show only activity metrics
-python3 -m src.claude_monitor.cli --focus usage
-
-# Show only MCP integrations
-python3 -m src.claude_monitor.cli --focus integrations
-
-# Show only file editing stats
-python3 -m src.claude_monitor.cli --focus files
-```
-
-### Filter by Project
-
-```bash
-# Filter to specific project
-python3 -m src.claude_monitor.cli --project /path/to/project
-```
-
-## Sample Output
-
-The dashboard features a modern, space-efficient layout with:
-- **Summary Cards**: Key metrics at a glance (sessions, tokens, costs, cache efficiency)
-- **Side-by-Side Tables**: Detailed usage and token metrics using full terminal width
-- **Project Breakdown**: See your most active projects
-- **File Editing Stats**: Track your most frequently edited files
-
-```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ Claude Code Usage Dashboard                                                  │
-│ (Last 30 days)                                                               │
-╰──────────────────────────────────────────────────────────────────────────────╯
-
-╭───────────────────╮  ╭───────────────────╮  ╭───────────────────╮  ╭──────────────────╮
-│  SESSIONS         │  │   TOTAL TOKENS    │  │  TOTAL COST       │  │  CACHE HIT RATE  │
-│  259              │  │   1.7B            │  │  $975.85          │  │  92.9%           │
-│  1,481 commands   │  │                   │  │  -$4335.89 saved  │  │  Excellent       │
-╰───────────────────╯  ╰───────────────────╯  ╰───────────────────╯  ╰──────────────────╯
-
-╭─────────────────────────────────────╮  ╭─────────────────────────────────────╮
-│  📊 USAGE SUMMARY                   │  │  💰 TOKEN USAGE & COSTS             │
-│  ┏━━━━━━━━━━━━━┳━━━━━━━━┓            │  │  ┏━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━┓  │
-│  ┃ Metric      ┃  Value ┃            │  │  ┃ Token Type ┃  Count ┃   Cost ┃  │
-│  ┡━━━━━━━━━━━━━╇━━━━━━━━┩            │  │  ┡━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━┩  │
-│  │ Sessions    │    259 │            │  │  │ Input      │  905K  │  $2.71 │  │
-│  │ Commands    │  1,481 │            │  │  │ Output     │  1.9M  │ $28.29 │  │
-│  │ Projects    │     19 │            │  │  │ Cache Write│ 123.5M │$463.08 │  │
-│  └─────────────┴────────┘            │  │  │ Cache Read │1605.9M │$481.77 │  │
-╰─────────────────────────────────────╯  │  │ TOTAL      │1732.2M │$975.85 │  │
-                                         │  │ Cache Savings      │-$4335.89│  │
-                                         │  └────────────────────────────────┘  │
-                                         │  Cache Efficiency: ██████████ 92.9% │
-                                         ╰─────────────────────────────────────╯
-
-╭─────────────────────────────────────────────────────────────────────────────╮
-│  📁 TOP PROJECTS                                                            │
-│  ┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┓                           │
-│  ┃ Project               ┃ Sessions ┃ Commands ┃                           │
-│  ┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━┩                           │
-│  │ ads_gf_bot            │       50 │      861 │                           │
-│  │ databricks-pelai      │       82 │      320 │                           │
-│  │ askclaude_app         │        7 │       94 │                           │
-│  └───────────────────────┴──────────┴──────────┘                           │
-╰─────────────────────────────────────────────────────────────────────────────╯
-```
+*Screenshots will be added in the next update showing the dashboard, token usage, and project pages.*
 
 ## Metrics Explained
 
 ### Usage Metrics
 - **Total Sessions**: Number of unique Claude Code sessions
-- **Total Commands**: Number of commands/queries you've sent
-- **Total Messages**: Total back-and-forth messages (including Claude's responses)
-- **Active Projects**: Number of different projects you've worked on
-- **Avg Commands/Day**: Average daily command count
+- **Total Commands**: Number of commands/queries sent to Claude
+- **Active Projects**: Number of different projects worked on
+- **Time Range**: Filtered time period for displayed metrics
 
 ### Token Metrics
 - **Input Tokens**: Regular input tokens (non-cached)
 - **Output Tokens**: Tokens in Claude's responses
 - **Cache Write**: Tokens written to prompt cache
-- **Cache Read**: Tokens read from prompt cache (much cheaper!)
+- **Cache Read**: Tokens read from prompt cache (90% cheaper!)
 - **Cache Efficiency**: Percentage of cache reads vs. cache writes
 
 ### Cost Calculations
+
 Based on Claude Sonnet 4.5 pricing:
-- Input: $3/million tokens
-- Output: $15/million tokens
-- Cache Write: $3.75/million tokens
-- Cache Read: $0.30/million tokens (90% discount!)
+- **Input**: $3.00 per million tokens
+- **Output**: $15.00 per million tokens
+- **Cache Write**: $3.75 per million tokens
+- **Cache Read**: $0.30 per million tokens (90% discount!)
 
 ### Cache Savings
-Shows how much money you saved by using prompt caching. The calculation compares what cache reads would have cost as regular input tokens vs. the actual discounted cache read cost.
+
+Shows how much money you've saved through prompt caching. The calculation compares what cache reads would have cost as regular input tokens versus the actual discounted cache read cost. High cache efficiency (>90%) means significant savings!
 
 ## Data Sources
 
-The tool analyzes local Claude Code data from `~/.claude/`:
+Claude Monitor reads data from your local Claude Code installation at `~/.claude/`:
 
 - **history.jsonl**: Command history and timestamps
-- **projects/**: Session data with token usage
+- **projects/**: Session data with detailed token usage
 - **debug/**: MCP server activity logs
 - **file-history/**: File modification tracking
+- **skills/**: Installed skills and configurations
+- **settings.json**: Claude Code settings
 
-No API keys or external services required!
+**Privacy**: All data stays on your machine. No external API calls, no data uploaded.
 
 ## Requirements
 
-- Python 3.9+
-- Claude Code CLI installed and used at least once
-- Dependencies: click, rich, python-dateutil
+- **Python**: 3.9 or higher
+- **Claude Code**: Must be installed and used at least once
+- **Dependencies**:
+  - click>=8.1.0
+  - rich>=13.0.0
+  - python-dateutil>=2.8.0
+  - Flask>=3.0.0
+  - Jinja2>=3.1.0
 
 ## Project Structure
 
 ```
 claude_monitor/
 ├── src/claude_monitor/
-│   ├── cli.py              # Main CLI entry point
+│   ├── cli.py              # Entry point - launches web server
 │   ├── parsers/            # Data parsers for Claude files
 │   │   ├── history.py      # Command history parser
 │   │   ├── sessions.py     # Session and token data parser
 │   │   ├── debug.py        # MCP server logs parser
-│   │   └── files.py        # File editing history parser
+│   │   ├── files.py        # File editing history parser
+│   │   ├── tools.py        # Tool usage parser
+│   │   └── skills.py       # Skills and config parser
 │   ├── analyzers/          # Data analysis and aggregation
 │   │   ├── usage.py        # Usage statistics analyzer
 │   │   ├── tokens.py       # Token usage and cost analyzer
-│   │   └── integrations.py # MCP integration analyzer
-│   ├── display/            # Rich CLI formatting
-│   │   ├── formatter.py    # Display formatting utilities
-│   │   ├── tables.py       # Table builders
-│   │   └── dashboard.py    # Main dashboard
+│   │   ├── integrations.py # MCP integration analyzer
+│   │   └── features.py     # Features analyzer
+│   ├── web/                # Flask web application
+│   │   ├── app.py          # Flask app factory
+│   │   ├── routes/         # Route handlers
+│   │   ├── services/       # Business logic layer
+│   │   ├── templates/      # Jinja2 HTML templates
+│   │   └── static/         # CSS, JS, images
 │   └── utils/              # Shared utilities
 │       ├── paths.py        # Path management
 │       └── time_filter.py  # Time-based filtering
-├── pyproject.toml
-└── README.md
+├── LICENSE                 # MIT License
+├── README.md              # This file
+├── CONTRIBUTING.md        # Contribution guidelines
+├── CHANGELOG.md           # Version history
+├── setup.py               # Package setup
+├── pyproject.toml         # Modern Python packaging
+└── requirements.txt       # Dependencies
 ```
 
-## Tips
+## Development
 
-1. **Cache Efficiency**: A high cache efficiency (>90%) means you're saving significant money through prompt caching. This happens when you're working on the same project/context repeatedly.
+Want to contribute? Check out [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-2. **Cost Tracking**: Use `--focus tokens` to monitor your spending. The tool shows both gross cost and net cost after cache savings.
+### Run in Development Mode
 
-3. **Project Analysis**: Use the project breakdown to see which projects consume the most tokens and cost the most.
+```bash
+# Install in editable mode
+pip install -e .
 
-4. **Time Filtering**: Use `--week` or `--month` to track recent activity and costs, or `--since` for custom date ranges.
+# Run with debug mode (auto-reload on code changes)
+claude-monitor --debug
+```
 
-5. **Performance**: The tool uses streaming parsing to handle large session files efficiently, so it should work well even with extensive Claude Code usage.
+### Run Tests
+
+```bash
+# Manual testing - verify all routes work
+claude-monitor
+# Then navigate to each page in your browser
+```
+
+## Tips & Best Practices
+
+1. **Monitor Cache Efficiency**: A high cache efficiency (>90%) means you're saving money through prompt caching. This happens when working on the same project/context repeatedly.
+
+2. **Track Costs**: Use the Tokens page to monitor your spending. The dashboard shows both gross cost and net cost after cache savings.
+
+3. **Analyze Projects**: The Projects page helps identify which projects consume the most tokens and cost the most, useful for budgeting.
+
+4. **Time Filtering**: Use the time period selector to track recent activity and costs, or view all-time statistics.
+
+5. **Export Data**: Use CSV/JSON export for custom analysis, charting in Excel, or integration with other tools.
+
+6. **Performance**: The tool uses streaming parsing to handle large session files efficiently, even with extensive Claude Code usage.
+
+## Troubleshooting
+
+### "FileNotFoundError: ~/.claude/ not found"
+- Ensure Claude Code is installed
+- Run Claude Code at least once to generate data files
+
+### "ImportError: No module named 'flask'"
+- Install dependencies: `pip install -r requirements.txt`
+- Or reinstall the package: `pip install .`
+
+### Web server won't start
+- Check if port 5000 is already in use
+- Try a different port: `claude-monitor --port 8080`
+- Check Python version: `python3 --version` (requires 3.9+)
+
+### Data not showing
+- Verify Claude Code has been used recently
+- Check `~/.claude/` directory exists and contains data files
+- Try restarting the web server
+
+## Version History
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
+- **v1.0.0** (2025-12-20): Web-only release with production polish
+- **v0.1.0** (2025-12-19): Initial release with CLI dashboard
 
 ## License
 
-MIT License - Feel free to use and modify as needed!
+MIT License - see [LICENSE](LICENSE) file for details.
+
+**THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.** See LICENSE for full terms.
 
 ## Author
 
-Allan Napier
+**Allan Napier**
+
+## Contributing
+
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/allannapier/claude_monitor/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/allannapier/claude_monitor/discussions)
+
+---
+
+**Note**: This tool is not affiliated with or endorsed by Anthropic. It's an independent monitoring tool for Claude Code users.
