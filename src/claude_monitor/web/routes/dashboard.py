@@ -134,6 +134,7 @@ def projects() -> str:
         service = current_app.dashboard_service
         project_breakdown: Dict[str, Any] = service.get_project_breakdown()
 
+  
         return render_template(
             'pages/projects.html',
             projects=project_breakdown
@@ -441,6 +442,195 @@ def api_dashboard() -> str:
     except Exception as e:
         logger.error(f'Error loading filtered dashboard: {e}', exc_info=True)
         return f'<div class="text-red-600 p-4">Error loading data: {str(e)}</div>', 500
+
+
+@dashboard_bp.route('/api/projects')
+def api_projects() -> str:
+    """
+    API endpoint for HTMX to fetch filtered projects data.
+
+    Query params:
+        period: today|week|month|all (default: all)
+
+    Returns:
+        Rendered HTML partial with projects content
+    """
+    from flask import request
+    from ...utils.time_filter import TimeFilter
+    from datetime import datetime, timedelta
+
+    try:
+        service = current_app.dashboard_service
+        period = request.args.get('period', 'all')
+
+        # Create time filter based on period
+        time_filter = None
+        if period != 'all':
+            now = datetime.now()
+            if period == 'today':
+                start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif period == 'week':
+                start_time = now - timedelta(days=7)
+            elif period == 'month':
+                start_time = now - timedelta(days=30)
+            else:
+                start_time = None
+
+            if start_time:
+                time_filter = TimeFilter(start_time=start_time, end_time=now)
+
+        # Fetch filtered data
+        project_breakdown = service.get_project_breakdown(time_filter=time_filter)
+
+        # Render partial content
+        return render_template(
+            'partials/projects_content.html',
+            projects=project_breakdown
+        )
+
+    except Exception as e:
+        logger.error(f'Error loading filtered projects: {e}', exc_info=True)
+        return f'<div class="text-red-600 p-4">Error loading projects: {str(e)}</div>', 500
+
+
+@dashboard_bp.route('/api/files')
+def api_files() -> str:
+    """API endpoint for HTMX to fetch filtered files data."""
+    from flask import request
+    from ...utils.time_filter import TimeFilter
+    from datetime import datetime, timedelta
+
+    try:
+        service = current_app.dashboard_service
+        period = request.args.get('period', 'all')
+
+        time_filter = None
+        if period != 'all':
+            now = datetime.now()
+            if period == 'today':
+                start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif period == 'week':
+                start_time = now - timedelta(days=7)
+            elif period == 'month':
+                start_time = now - timedelta(days=30)
+            else:
+                start_time = None
+
+            if start_time:
+                time_filter = TimeFilter(start_time=start_time, end_time=now)
+
+        file_data = service.get_file_statistics(limit=20, time_filter=time_filter)
+        return render_template('partials/files_content.html', files=file_data)
+
+    except Exception as e:
+        logger.error(f'Error loading filtered files: {e}', exc_info=True)
+        return f'<div class="text-red-600 p-4">Error loading files: {str(e)}</div>', 500
+
+
+@dashboard_bp.route('/api/integrations')
+def api_integrations() -> str:
+    """API endpoint for HTMX to fetch filtered integrations data."""
+    from flask import request
+    from ...utils.time_filter import TimeFilter
+    from datetime import datetime, timedelta
+
+    try:
+        service = current_app.dashboard_service
+        period = request.args.get('period', 'all')
+
+        time_filter = None
+        if period != 'all':
+            now = datetime.now()
+            if period == 'today':
+                start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif period == 'week':
+                start_time = now - timedelta(days=7)
+            elif period == 'month':
+                start_time = now - timedelta(days=30)
+            else:
+                start_time = None
+
+            if start_time:
+                time_filter = TimeFilter(start_time=start_time, end_time=now)
+
+        mcp_data = service.get_mcp_integrations(time_filter=time_filter)
+        integrations_data = {
+            'active_count': mcp_data['total_servers'],
+            'server_activity': mcp_data['servers']
+        }
+        return render_template('partials/integrations_content.html', integrations=integrations_data)
+
+    except Exception as e:
+        logger.error(f'Error loading filtered integrations: {e}', exc_info=True)
+        return f'<div class="text-red-600 p-4">Error loading integrations: {str(e)}</div>', 500
+
+
+@dashboard_bp.route('/api/tokens')
+def api_tokens() -> str:
+    """API endpoint for HTMX to fetch filtered tokens data."""
+    from flask import request
+    from ...utils.time_filter import TimeFilter
+    from datetime import datetime, timedelta
+
+    try:
+        service = current_app.dashboard_service
+        period = request.args.get('period', 'all')
+
+        time_filter = None
+        if period != 'all':
+            now = datetime.now()
+            if period == 'today':
+                start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif period == 'week':
+                start_time = now - timedelta(days=7)
+            elif period == 'month':
+                start_time = now - timedelta(days=30)
+            else:
+                start_time = None
+
+            if start_time:
+                time_filter = TimeFilter(start_time=start_time, end_time=now)
+
+        token_summary = service.get_token_summary(time_filter=time_filter)
+        return render_template('partials/tokens_content.html', tokens=token_summary)
+
+    except Exception as e:
+        logger.error(f'Error loading filtered tokens: {e}', exc_info=True)
+        return f'<div class="text-red-600 p-4">Error loading tokens: {str(e)}</div>', 500
+
+
+@dashboard_bp.route('/api/features')
+def api_features() -> str:
+    """API endpoint for HTMX to fetch filtered features data."""
+    from flask import request
+    from ...utils.time_filter import TimeFilter
+    from datetime import datetime, timedelta
+
+    try:
+        service = current_app.dashboard_service
+        period = request.args.get('period', 'all')
+
+        time_filter = None
+        if period != 'all':
+            now = datetime.now()
+            if period == 'today':
+                start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif period == 'week':
+                start_time = now - timedelta(days=7)
+            elif period == 'month':
+                start_time = now - timedelta(days=30)
+            else:
+                start_time = None
+
+            if start_time:
+                time_filter = TimeFilter(start_time=start_time, end_time=now)
+
+        features_data = service.get_features_statistics(time_filter=time_filter)
+        return render_template('partials/features_content.html', features=features_data)
+
+    except Exception as e:
+        logger.error(f'Error loading filtered features: {e}', exc_info=True)
+        return f'<div class="text-red-600 p-4">Error loading features: {str(e)}</div>', 500
 
 
 @dashboard_bp.route('/export/<format>')

@@ -738,7 +738,7 @@ class DashboardService:
             'total_edits': total_edits,
             'total_reads': total_reads,
             'total_writes': total_writes,
-            'files': sorted_files
+            'file_operations': sorted_files
         }
 
     # ========== Public Methods for Full Dashboard ==========

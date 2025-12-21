@@ -1,0 +1,80 @@
+{% from "components/card.html" import stat_card %}
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+    {{ stat_card(
+        label="MCP Servers",
+        value=(integrations.active_count|default(0)|int)|string,
+        icon='<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>'
+    ) }}
+
+    {{ stat_card(
+        label="Total Calls",
+        value=(integrations.server_activity|sum(attribute='call_count')|default(0)|int)|string,
+        icon='<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 2.493A1 1 0 0012.282 7H19a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8m4-8v8m4-8v8"></path></svg>'
+    ) }}
+
+    {{ stat_card(
+        label="Active Servers",
+        value=(integrations.server_activity|selectattr('active')|list|length|default(0)|int)|string,
+        icon='<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+    ) }}
+
+    {{ stat_card(
+        label="Error Rate",
+        value=(integrations.server_activity|map(attribute='error_count')|sum / (integrations.server_activity|map(attribute='call_count')|sum or 1) * 100)|round(1)|string + '%',
+        icon='<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>'
+    ) }}
+</div>
+
+<!-- MCP Servers Activity -->
+{% if integrations.server_activity %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    {% for server in integrations.server_activity %}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">{{ server.name }}</h3>
+                <p class="text-sm text-gray-500">{{ server.description|truncate(100) }}</p>
+            </div>
+            <div class="flex-shrink-0">
+                <span class="px-2 py-1 text-xs font-medium rounded-full
+                    {% if server.active %}bg-green-100 text-green-800
+                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                    {{ 'Active' if server.active else 'Inactive' }}
+                </span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+                <span class="text-gray-500">Calls</span>
+                <div class="font-medium text-gray-900">{{ server.call_count|default(0) }}</div>
+            </div>
+            <div>
+                <span class="text-gray-500">Errors</span>
+                <div class="font-medium text-red-600">{{ server.error_count|default(0) }}</div>
+            </div>
+            <div>
+                <span class="text-gray-500">Response Time</span>
+                <div class="font-medium text-gray-900">{{ server.avg_response_time|round(2)|default(0) }}ms</div>
+            </div>
+            <div>
+                <span class="text-gray-500">Last Used</span>
+                <div class="font-medium text-gray-900">{{ server.last_call.strftime('%m/%d %H:%M') if server.last_call else 'Never' }}</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="px-6 py-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
+        </svg>
+        <p class="mt-2 text-gray-500">No MCP servers found</p>
+        <p class="text-sm text-gray-400 mt-1">Configure MCP servers in your Claude Code settings to see integration data</p>
+    </div>
+</div>
+{% endif %}
