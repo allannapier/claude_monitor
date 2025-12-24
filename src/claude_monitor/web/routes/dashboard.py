@@ -40,6 +40,7 @@ def index() -> str:
         usage_summary: Dict[str, Any] = service.get_usage_summary()
         token_summary: Dict[str, Any] = service.get_token_summary()
         project_breakdown: Dict[str, Any] = service.get_project_breakdown()
+        model_breakdown: Dict[str, Any] = service.get_model_breakdown()
 
         logger.debug('Dashboard data fetched successfully')
 
@@ -48,7 +49,8 @@ def index() -> str:
             'pages/dashboard.html',
             usage=usage_summary,
             tokens=token_summary,
-            projects=project_breakdown
+            projects=project_breakdown,
+            models=model_breakdown
         )
 
     except ValueError as e:
@@ -96,10 +98,14 @@ def tokens() -> str:
     try:
         service = current_app.dashboard_service
         token_summary: Dict[str, Any] = service.get_token_summary()
+        model_breakdown: Dict[str, Any] = service.get_model_breakdown()
+        available_models = service.get_available_models()
 
         return render_template(
             'pages/tokens.html',
-            tokens=token_summary
+            tokens=token_summary,
+            models=model_breakdown,
+            available_models=available_models
         )
 
     except ValueError as e:
@@ -133,11 +139,13 @@ def projects() -> str:
     try:
         service = current_app.dashboard_service
         project_breakdown: Dict[str, Any] = service.get_project_breakdown()
+        available_models = service.get_available_models()
 
-  
+
         return render_template(
             'pages/projects.html',
-            projects=project_breakdown
+            projects=project_breakdown,
+            available_models=available_models
         )
 
     except ValueError as e:
@@ -439,13 +447,15 @@ def api_dashboard() -> str:
         usage_summary: Dict[str, Any] = service.get_usage_summary(time_filter=time_filter)
         token_summary: Dict[str, Any] = service.get_token_summary(time_filter=time_filter)
         project_breakdown: Dict[str, Any] = service.get_project_breakdown(time_filter=time_filter)
-        
+        model_breakdown: Dict[str, Any] = service.get_model_breakdown(time_filter=time_filter)
+
         # Render partial template
         return render_template(
             'partials/dashboard_content.html',
             usage=usage_summary,
             tokens=token_summary,
-            projects=project_breakdown
+            projects=project_breakdown,
+            models=model_breakdown
         )
     
     except Exception as e:
@@ -460,6 +470,7 @@ def api_projects() -> str:
 
     Query params:
         period: today|week|month|all (default: all)
+        model: model ID to filter by (default: all models)
 
     Returns:
         Rendered HTML partial with projects content
@@ -471,6 +482,7 @@ def api_projects() -> str:
     try:
         service = current_app.dashboard_service
         period = request.args.get('period', 'all')
+        model = request.args.get('model', '')
 
         # Create time filter based on period
         time_filter = None
@@ -488,13 +500,20 @@ def api_projects() -> str:
             if start_time:
                 time_filter = TimeFilter(start_time=start_time, end_time=now)
 
-        # Fetch filtered data
-        project_breakdown = service.get_project_breakdown(time_filter=time_filter)
+        # Fetch data - filtered by model if specified
+        if model:
+            project_breakdown = service.get_project_breakdown_by_model(model, time_filter=time_filter)
+        else:
+            project_breakdown = service.get_project_breakdown(time_filter=time_filter)
+
+        available_models = service.get_available_models(time_filter=time_filter)
 
         # Render partial content
         return render_template(
             'partials/projects_content.html',
-            projects=project_breakdown
+            projects=project_breakdown,
+            available_models=available_models,
+            selected_model=model
         )
 
     except Exception as e:
@@ -584,6 +603,7 @@ def api_tokens() -> str:
     try:
         service = current_app.dashboard_service
         period = request.args.get('period', 'all')
+        model = request.args.get('model', '')
 
         time_filter = None
         if period != 'all':
@@ -600,8 +620,22 @@ def api_tokens() -> str:
             if start_time:
                 time_filter = TimeFilter(start_time=start_time, end_time=now)
 
-        token_summary = service.get_token_summary(time_filter=time_filter)
-        return render_template('partials/tokens_content.html', tokens=token_summary)
+        # Get token data - filtered by model if specified
+        if model:
+            token_summary = service.get_token_summary_by_model(model, time_filter=time_filter)
+        else:
+            token_summary = service.get_token_summary(time_filter=time_filter)
+
+        model_breakdown = service.get_model_breakdown(time_filter=time_filter)
+        available_models = service.get_available_models(time_filter=time_filter)
+
+        return render_template(
+            'partials/tokens_content.html',
+            tokens=token_summary,
+            models=model_breakdown,
+            available_models=available_models,
+            selected_model=model
+        )
 
     except Exception as e:
         logger.error(f'Error loading filtered tokens: {e}', exc_info=True)

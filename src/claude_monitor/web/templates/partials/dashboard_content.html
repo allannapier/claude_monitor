@@ -125,6 +125,44 @@
 {% endif %}
 </div>
 
+<!-- Model Usage Card -->
+{% if models and models.models %}
+<div class="mt-8">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="text-lg font-semibold text-gray-900">Model Usage</h3>
+            <a href="/tokens" class="text-sm text-[#0770E3] hover:underline">View details</a>
+        </div>
+        <div class="p-6">
+            <div class="space-y-4">
+                {% for model in models.models[:3] %}
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm font-medium text-gray-900 truncate">{{ model.model_name }}</span>
+                            <span class="text-sm font-semibold text-[#0770E3]">${{ model.cost|default(0.0)|float|round(2) }}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-[#0770E3] h-2 rounded-full transition-all" style="width: {{ model.cost_percentage|default(0) }}%"></div>
+                        </div>
+                        <div class="flex justify-between mt-1">
+                            <span class="text-xs text-gray-500">{{ model.total_tokens|default(0)|int }} tokens</span>
+                            <span class="text-xs text-gray-500">{{ model.cost_percentage|default(0)|float|round(1) }}%</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if models.total_models > 3 %}
+            <div class="mt-4 pt-4 border-t border-gray-200 text-center">
+                <span class="text-sm text-gray-500">+{{ models.total_models - 3 }} more model{% if models.total_models - 3 > 1 %}s{% endif %}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Charts Section -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
     {% include 'partials/dashboard_charts.html' %}

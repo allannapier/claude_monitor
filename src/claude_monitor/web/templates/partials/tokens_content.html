@@ -27,6 +27,62 @@
     ) }}
 </div>
 
+<!-- Pricing Disclaimer -->
+<div class="mt-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+    <div class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <p class="text-sm text-blue-700">
+            <strong>Pricing note:</strong> Costs are calculated using each model's official API pricing. Unrecognized model IDs default to Claude Sonnet 4.5 rates.
+        </p>
+    </div>
+</div>
+
+<!-- Usage by Model -->
+{% if models and models.models %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mt-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">Usage by Model</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Input</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Output</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Tokens</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">% of Total</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for model in models.models %}
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ model.model_name }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{{ model.input_tokens|default(0)|int }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{{ model.output_tokens|default(0)|int }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{{ model.total_tokens|default(0)|int }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-[#0770E3]">${{ model.cost|default(0.0)|float|round(2) }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <div class="w-16 bg-gray-200 rounded-full h-2">
+                                <div class="bg-[#0770E3] h-2 rounded-full" style="width: {{ model.cost_percentage|default(0) }}%"></div>
+                            </div>
+                            <span class="text-gray-600 w-12">{{ model.cost_percentage|default(0)|float|round(1) }}%</span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- Cost Breakdown -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -62,15 +118,15 @@
         <div class="space-y-4">
             <div class="flex justify-between items-center">
                 <span class="text-gray-600">Cache Creation</span>
-                <span class="font-medium text-gray-900">{{ tokens.cache_creation_input_tokens|default(0)|int }}</span>
+                <span class="font-medium text-gray-900">{{ tokens.cache_creation_tokens|default(0)|int }}</span>
             </div>
             <div class="flex justify-between items-center">
                 <span class="text-gray-600">Cache Reads</span>
-                <span class="font-medium text-gray-900">{{ tokens.cache_read_input_tokens|default(0)|int }}</span>
+                <span class="font-medium text-gray-900">{{ tokens.cache_read_tokens|default(0)|int }}</span>
             </div>
             <div class="flex justify-between items-center">
-                <span class="text-gray-600">Total Cache Hits</span>
-                <span class="font-medium text-green-600">{{ tokens.cache_hits|default(0)|int }}</span>
+                <span class="text-gray-600">Cache Hit Rate</span>
+                <span class="font-medium text-green-600">{{ tokens.cache_hit_rate|default(0)|float|round(1) }}%</span>
             </div>
             <div class="flex justify-between items-center">
                 <span class="text-gray-600">Cache Savings</span>

@@ -19,7 +19,7 @@ from ...parsers.tools import ToolUsageParser, ToolStats
 from ...parsers.skills import SkillsParser, ConfigurationParser, SkillInfo
 from ...parsers.configuration_scanner import ConfigurationScanner
 from ...analyzers.usage import UsageAnalyzer, UsageSummary
-from ...analyzers.tokens import TokenAnalyzer, TokenSummary
+from ...analyzers.tokens import TokenAnalyzer, TokenSummary, get_model_display_name
 from ...analyzers.integrations import IntegrationAnalyzer, IntegrationSummary
 from ...analyzers.features import FeaturesAnalyzer, FeaturesSummary
 from ...analyzers.configuration import ConfigurationAnalyzer
@@ -270,6 +270,85 @@ class DashboardService:
             'most_active_project': most_active_project or 'N/A'
         }
 
+    def get_project_breakdown_by_model(
+        self,
+        model_id: str,
+        time_filter: Optional[TimeFilter] = None
+    ) -> Dict[str, Any]:
+        """
+        Get per-project activity breakdown filtered by a specific model.
+
+        Args:
+            model_id: Model ID to filter by
+            time_filter: Optional time filter to apply
+
+        Returns:
+            Dict with project data filtered to only show usage of the specified model
+        """
+        analyzer = self._usage_analyzer
+        token_analyzer = self._token_analyzer
+        if time_filter:
+            filtered_service = self._create_time_filtered_service(time_filter)
+            analyzer = filtered_service._usage_analyzer
+            token_analyzer = filtered_service._token_analyzer
+
+        # Get base project breakdown for structure (commands, sessions, etc.)
+        base_breakdown = analyzer.get_project_breakdown()
+
+        # Get model-by-project breakdown for token/cost data
+        model_by_project = token_analyzer.get_model_by_project_breakdown()
+
+        projects_data = []
+        total_cost = 0.0
+        most_active_project = None
+        max_cost = 0.0
+
+        for project_path, project_data in base_breakdown.items():
+            # Get model-specific data for this project
+            project_models = model_by_project.get(project_path, {})
+
+            if model_id in project_models:
+                tokens, cost = project_models[model_id]
+                total_tokens = (
+                    tokens.input_tokens +
+                    tokens.output_tokens +
+                    tokens.cache_creation_input_tokens +
+                    tokens.cache_read_input_tokens
+                )
+                total_cost += cost
+
+                # Track most active by cost for model filter
+                if cost > max_cost:
+                    max_cost = cost
+                    most_active_project = project_data['name']
+
+                projects_data.append({
+                    'path': project_path,
+                    'name': project_data['name'],
+                    'full_path': project_data['full_path'],
+                    'command_count': project_data['commands'],
+                    'session_count': project_data['sessions'],
+                    'message_count': project_data['messages'],
+                    'total_tokens': total_tokens,
+                    'total_cost': cost,
+                    'commands': project_data['commands'],
+                    'sessions': project_data['sessions'],
+                    'messages': project_data['messages'],
+                })
+
+        # Sort by cost (descending) for model filter
+        projects_data.sort(key=lambda x: x['total_cost'], reverse=True)
+
+        avg_commands = sum(p['command_count'] for p in projects_data) / len(projects_data) if projects_data else 0
+
+        return {
+            'projects': projects_data,
+            'total_projects': len(projects_data),
+            'total_cost': round(total_cost, 2),
+            'avg_commands_per_project': round(avg_commands, 1),
+            'most_active_project': most_active_project or 'N/A'
+        }
+
     # ========== Public Methods for Token Data ==========
 
     def get_token_summary(self, time_filter: Optional[TimeFilter] = None) -> Dict[str, Any]:
@@ -320,21 +399,105 @@ class DashboardService:
         breakdown = analyzer.get_model_breakdown()
 
         models_data = []
-        for model_name, (tokens, cost) in breakdown.items():
+        total_cost = sum(cost for _, cost in breakdown.values())
+
+        for model_id, (tokens, cost) in breakdown.items():
+            total_tokens = (
+                tokens.input_tokens +
+                tokens.output_tokens +
+                tokens.cache_creation_input_tokens +
+                tokens.cache_read_input_tokens
+            )
             models_data.append({
-                'model_name': model_name,
-                'tokens': {
-                    'input_tokens': tokens.input_tokens,
-                    'output_tokens': tokens.output_tokens,
-                    'cache_creation_input_tokens': tokens.cache_creation_input_tokens,
-                    'cache_read_input_tokens': tokens.cache_read_input_tokens,
-                },
+                'model_id': model_id,
+                'model_name': get_model_display_name(model_id),
+                'input_tokens': tokens.input_tokens,
+                'output_tokens': tokens.output_tokens,
+                'cache_creation_tokens': tokens.cache_creation_input_tokens,
+                'cache_read_tokens': tokens.cache_read_input_tokens,
+                'total_tokens': total_tokens,
                 'cost': round(cost, 4),
+                'cost_percentage': round((cost / total_cost * 100) if total_cost > 0 else 0, 1),
             })
 
         return {
             'models': models_data,
-            'total_models': len(models_data)
+            'total_models': len(models_data),
+            'total_cost': round(total_cost, 2),
+        }
+
+    def get_available_models(self, time_filter: Optional[TimeFilter] = None) -> List[Dict[str, str]]:
+        """
+        Get list of available models for filtering.
+
+        Args:
+            time_filter: Optional time filter to apply
+
+        Returns:
+            List of dicts with model id and display name
+        """
+        breakdown = self.get_model_breakdown(time_filter)
+        return [
+            {'id': model['model_id'], 'name': model['model_name']}
+            for model in breakdown['models']
+        ]
+
+    def get_token_summary_by_model(
+        self,
+        model_id: str,
+        time_filter: Optional[TimeFilter] = None
+    ) -> Dict[str, Any]:
+        """
+        Get token usage summary filtered by a specific model.
+
+        Args:
+            model_id: Model ID to filter by
+            time_filter: Optional time filter to apply
+
+        Returns:
+            Dict with token statistics for the specified model
+        """
+        analyzer = self._token_analyzer
+        if time_filter:
+            analyzer = self._create_time_filtered_service(time_filter)._token_analyzer
+
+        breakdown = analyzer.get_model_breakdown()
+
+        if model_id not in breakdown:
+            # Return empty summary if model not found
+            return {
+                'input_tokens': 0,
+                'output_tokens': 0,
+                'cache_creation_tokens': 0,
+                'cache_read_tokens': 0,
+                'input_cost': 0.0,
+                'output_cost': 0.0,
+                'cache_creation_cost': 0.0,
+                'cache_read_cost': 0.0,
+                'total_cost': 0.0,
+                'cache_savings': 0.0,
+                'cache_hit_rate': 0.0,
+            }
+
+        tokens, total_cost = breakdown[model_id]
+        cost_breakdown = analyzer.calculate_cost(tokens, model_id)
+
+        # Calculate cache efficiency for this model
+        total_input = tokens.input_tokens + tokens.cache_creation_input_tokens + tokens.cache_read_input_tokens
+        cache_hit_rate = (tokens.cache_read_input_tokens / total_input * 100) if total_input > 0 else 0
+
+        return {
+            'input_tokens': tokens.input_tokens,
+            'output_tokens': tokens.output_tokens,
+            'cache_creation_tokens': tokens.cache_creation_input_tokens,
+            'cache_read_tokens': tokens.cache_read_input_tokens,
+            'input_cost': round(cost_breakdown.input_cost, 2),
+            'output_cost': round(cost_breakdown.output_cost, 2),
+            'cache_creation_cost': round(cost_breakdown.cache_write_cost, 2),
+            'cache_read_cost': round(cost_breakdown.cache_read_cost, 2),
+            'total_cost': round(cost_breakdown.total_cost, 2),
+            'cache_savings': round(cost_breakdown.cache_savings, 2),
+            'cache_hit_rate': round(cache_hit_rate, 1),
         }
 
     def get_project_token_breakdown(self, time_filter: Optional[TimeFilter] = None) -> Dict[str, Any]:

@@ -4,56 +4,62 @@
 {% block title %}Projects - Claude Monitor{% endblock %}
 
 {% block main_content %}
-<div class="space-y-8" x-data="{ selectedPeriod: '{{ period|default('all') }}' }">
-    <!-- Page Title and Time Filter -->
+<div class="space-y-8" x-data="{ selectedPeriod: '{{ period|default('all') }}', selectedModel: '{{ selected_model|default('') }}' }">
+    <!-- Page Title and Filters -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">Projects</h1>
             <p class="mt-2 text-gray-600">Per-project usage analytics and statistics</p>
         </div>
 
-        <!-- Time Filter -->
-        <div class="flex gap-2" role="group">
-            <button
-                hx-get="/api/projects?period=today"
-                hx-target="#projects-content"
-                hx-swap="innerHTML"
-                @click="selectedPeriod = 'today'"
-                :class="selectedPeriod === 'today' ? 'bg-[#0770E3] text-white border-[#0770E3]' : 'bg-white text-gray-700 border-gray-300'"
-                class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0770E3] focus:ring-offset-2"
-            >
-                Today
-            </button>
-            <button
-                hx-get="/api/projects?period=week"
-                hx-target="#projects-content"
-                hx-swap="innerHTML"
-                @click="selectedPeriod = 'week'"
-                :class="selectedPeriod === 'week' ? 'bg-[#0770E3] text-white border-[#0770E3]' : 'bg-white text-gray-700 border-gray-300'"
-                class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0770E3] focus:ring-offset-2"
-            >
-                Week
-            </button>
-            <button
-                hx-get="/api/projects?period=month"
-                hx-target="#projects-content"
-                hx-swap="innerHTML"
-                @click="selectedPeriod = 'month'"
-                :class="selectedPeriod === 'month' ? 'bg-[#0770E3] text-white border-[#0770E3]' : 'bg-white text-gray-700 border-gray-300'"
-                class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0770E3] focus:ring-offset-2"
-            >
-                Month
-            </button>
-            <button
-                hx-get="/api/projects?period=all"
-                hx-target="#projects-content"
-                hx-swap="innerHTML"
-                @click="selectedPeriod = 'all'"
-                :class="selectedPeriod === 'all' ? 'bg-[#0770E3] text-white border-[#0770E3]' : 'bg-white text-gray-700 border-gray-300'"
-                class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-[#0660c3] focus:outline-none focus:ring-2 focus:ring-[#0770E3] focus:ring-offset-2"
-            >
-                All Time
-            </button>
+        <div class="flex flex-col sm:flex-row gap-4">
+            <!-- Model Filter -->
+            <div class="flex items-center gap-2">
+                <label for="model-filter" class="text-sm font-medium text-gray-700">Model:</label>
+                <select
+                    id="model-filter"
+                    name="model"
+                    @change="selectedModel = $event.target.value; htmx.ajax('GET', '/api/projects?period=' + selectedPeriod + '&model=' + $event.target.value, {target: '#projects-content', swap: 'innerHTML'})"
+                    class="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0770E3] focus:border-[#0770E3]"
+                >
+                    <option value="">All Models</option>
+                    {% for model in available_models|default([]) %}
+                    <option value="{{ model.id }}" {% if selected_model == model.id %}selected{% endif %}>{{ model.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Time Filter -->
+            <div class="flex gap-2" role="group">
+                <button
+                    @click="selectedPeriod = 'today'; htmx.ajax('GET', '/api/projects?period=today&model=' + selectedModel, {target: '#projects-content', swap: 'innerHTML'})"
+                    :class="selectedPeriod === 'today' ? 'bg-[#0770E3] text-white border-[#0770E3]' : 'bg-white text-gray-700 border-gray-300'"
+                    class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0770E3] focus:ring-offset-2"
+                >
+                    Today
+                </button>
+                <button
+                    @click="selectedPeriod = 'week'; htmx.ajax('GET', '/api/projects?period=week&model=' + selectedModel, {target: '#projects-content', swap: 'innerHTML'})"
+                    :class="selectedPeriod === 'week' ? 'bg-[#0770E3] text-white border-[#0770E3]' : 'bg-white text-gray-700 border-gray-300'"
+                    class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0770E3] focus:ring-offset-2"
+                >
+                    Week
+                </button>
+                <button
+                    @click="selectedPeriod = 'month'; htmx.ajax('GET', '/api/projects?period=month&model=' + selectedModel, {target: '#projects-content', swap: 'innerHTML'})"
+                    :class="selectedPeriod === 'month' ? 'bg-[#0770E3] text-white border-[#0770E3]' : 'bg-white text-gray-700 border-gray-300'"
+                    class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0770E3] focus:ring-offset-2"
+                >
+                    Month
+                </button>
+                <button
+                    @click="selectedPeriod = 'all'; htmx.ajax('GET', '/api/projects?period=all&model=' + selectedModel, {target: '#projects-content', swap: 'innerHTML'})"
+                    :class="selectedPeriod === 'all' ? 'bg-[#0770E3] text-white border-[#0770E3]' : 'bg-white text-gray-700 border-gray-300'"
+                    class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-[#0660c3] focus:outline-none focus:ring-2 focus:ring-[#0770E3] focus:ring-offset-2"
+                >
+                    All Time
+                </button>
+            </div>
         </div>
     </div>
 
