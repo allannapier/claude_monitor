@@ -1,111 +1,150 @@
 <!-- Token Usage Trend Chart -->
 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">Token Usage Over Time</h3>
-    <canvas id="tokenTrendChart" height="80"></canvas>
+    <div style="height: 250px;">
+        <canvas id="tokenTrendChart"></canvas>
+    </div>
 </div>
 
 <!-- Cost Breakdown Pie Chart -->
 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
     <h3 class="text-lg font-semibold text-gray-900 mb-4">Cost Breakdown</h3>
-    <div class="flex justify-center">
-        <canvas id="costPieChart" width="300" height="300"></canvas>
+    <div class="flex justify-center" style="height: 250px;">
+        <canvas id="costPieChart"></canvas>
     </div>
 </div>
 
 <script>
-// Token Trend Chart
-const tokenCtx = document.getElementById('tokenTrendChart');
-if (tokenCtx) {
-    new Chart(tokenCtx, {
-        type: 'line',
-        data: {
-            labels: ['7 days ago', '6 days ago', '5 days ago', '4 days ago', '3 days ago', '2 days ago', 'Yesterday', 'Today'],
-            datasets: [{
-                label: 'Total Tokens',
-                data: [0, 0, 0, 0, 0, 0, 0, 0],
-                borderColor: '#0770E3',
-                backgroundColor: 'rgba(7, 112, 227, 0.1)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return value.toLocaleString();
-                        }
-                    }
-                }
-            }
-        }
+(function() {
+    // Destroy existing charts if they exist (for HTMX reloads)
+    const existingTokenChart = Chart.getChart('tokenTrendChart');
+    if (existingTokenChart) existingTokenChart.destroy();
+    const existingPieChart = Chart.getChart('costPieChart');
+    if (existingPieChart) existingPieChart.destroy();
+
+    // Use requestAnimationFrame to wait for DOM layout before creating charts
+    // This fixes rendering issues when HTMX swaps in new content
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+            initCharts();
+        });
     });
-}
 
-// Cost Pie Chart
-const pieCtx = document.getElementById('costPieChart');
-if (pieCtx) {
-    const inputCost = {{ tokens.input_cost|default(0.0)|float }};
-    const outputCost = {{ tokens.output_cost|default(0.0)|float }};
-    const cacheCost = {{ tokens.cache_creation_cost|default(0.0)|float }};
-    const cacheReadCost = {{ tokens.cache_read_cost|default(0.0)|float }};
+    function initCharts() {
+        // Token Trend Chart
+        const tokenCtx = document.getElementById('tokenTrendChart');
+        if (tokenCtx) {
+            const trendLabels = {{ token_trend.labels|default([])|tojson }};
+            const trendData = {{ token_trend.data|default([])|tojson }};
 
-    new Chart(pieCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Input Tokens', 'Output Tokens', 'Cache Creation', 'Cache Reads'],
-            datasets: [{
-                data: [inputCost, outputCost, cacheCost, cacheReadCost],
-                backgroundColor: [
-                    '#0770E3',
-                    '#34D399',
-                    '#F59E0B',
-                    '#8B5CF6'
-                ],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        padding: 15,
-                        usePointStyle: true,
-                        font: {
-                            size: 12
-                        }
-                    }
+            new Chart(tokenCtx, {
+                type: 'line',
+                data: {
+                    labels: trendLabels,
+                    datasets: [{
+                        label: 'Total Tokens',
+                        data: trendData,
+                        borderColor: '#0770E3',
+                        backgroundColor: 'rgba(7, 112, 227, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
                 },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.label || '';
-                            if (label) {
-                                label += ': ';
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    let value = context.parsed.y;
+                                    if (value >= 1000000) {
+                                        return 'Tokens: ' + (value / 1000000).toFixed(2) + 'M';
+                                    } else if (value >= 1000) {
+                                        return 'Tokens: ' + (value / 1000).toFixed(1) + 'K';
+                                    }
+                                    return 'Tokens: ' + value.toLocaleString();
+                                }
                             }
-                            label += '$' + context.parsed.toFixed(2);
-                            return label;
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    if (value >= 1000000) {
+                                        return (value / 1000000).toFixed(1) + 'M';
+                                    } else if (value >= 1000) {
+                                        return (value / 1000).toFixed(0) + 'K';
+                                    }
+                                    return value.toLocaleString();
+                                }
+                            }
                         }
                     }
                 }
-            }
+            });
         }
-    });
-}
+
+        // Cost Pie Chart
+        const pieCtx = document.getElementById('costPieChart');
+        if (pieCtx) {
+            const inputCost = {{ tokens.input_cost|default(0.0)|float }};
+            const outputCost = {{ tokens.output_cost|default(0.0)|float }};
+            const cacheCost = {{ tokens.cache_creation_cost|default(0.0)|float }};
+            const cacheReadCost = {{ tokens.cache_read_cost|default(0.0)|float }};
+
+            new Chart(pieCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Input Tokens', 'Output Tokens', 'Cache Creation', 'Cache Reads'],
+                    datasets: [{
+                        data: [inputCost, outputCost, cacheCost, cacheReadCost],
+                        backgroundColor: [
+                            '#0770E3',
+                            '#34D399',
+                            '#F59E0B',
+                            '#8B5CF6'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += '$' + context.parsed.toFixed(2);
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+})();
 </script>

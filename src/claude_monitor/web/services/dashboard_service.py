@@ -5,6 +5,7 @@ by wrapping existing parsers and analyzers. It reuses all existing business logi
 while returning data as dicts/dataclasses suitable for web rendering.
 """
 
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 
@@ -440,6 +441,67 @@ class DashboardService:
             {'id': model['model_id'], 'name': model['model_name']}
             for model in breakdown['models']
         ]
+
+    def get_daily_token_trend(
+        self,
+        days: int = 7,
+        time_filter: Optional[TimeFilter] = None
+    ) -> Dict[str, Any]:
+        """
+        Get daily token usage for trend chart.
+
+        Args:
+            days: Number of days to include (default 7). Note: when time_filter
+                  is provided, days is calculated from the filter's start_time
+                  and this parameter is ignored.
+            time_filter: Optional time filter - if provided, overrides days parameter
+
+        Returns:
+            Dict with labels and data arrays for charting
+        """
+        # If time filter is provided, calculate days from it (overrides days param)
+        if time_filter and time_filter.start_time:
+            now = datetime.now()
+            delta = now - time_filter.start_time
+            days = max(1, delta.days + 1)  # Include current partial day, at least 1 day
+
+        daily_stats = self._session_parser.get_daily_stats(days=days, time_filter=time_filter)
+
+        labels = []
+        data = []
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        for date_str in sorted(daily_stats.keys()):
+            stats = daily_stats[date_str]
+            # Calculate total tokens for this day
+            total = (
+                stats.total_tokens.input_tokens +
+                stats.total_tokens.output_tokens +
+                stats.total_tokens.cache_creation_input_tokens +
+                stats.total_tokens.cache_read_input_tokens
+            )
+            data.append(total)
+
+            # Create human-readable label based on how many days we're showing
+            date = datetime.strptime(date_str, '%Y-%m-%d')
+            days_ago = (today - date).days
+
+            if days <= 7:
+                # For week or less, show relative labels
+                if days_ago == 0:
+                    labels.append('Today')
+                elif days_ago == 1:
+                    labels.append('Yesterday')
+                else:
+                    labels.append(f'{days_ago}d ago')
+            else:
+                # For longer periods, show date labels (Dec 15 format)
+                labels.append(date.strftime('%b %d'))
+
+        return {
+            'labels': labels,
+            'data': data,
+        }
 
     def get_token_summary_by_model(
         self,

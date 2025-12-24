@@ -42,6 +42,7 @@ def index() -> str:
         token_summary: Dict[str, Any] = service.get_token_summary()
         project_breakdown: Dict[str, Any] = service.get_project_breakdown()
         model_breakdown: Dict[str, Any] = service.get_model_breakdown()
+        token_trend: Dict[str, Any] = service.get_daily_token_trend(days=14)
 
         logger.debug('Dashboard data fetched successfully')
 
@@ -51,7 +52,8 @@ def index() -> str:
             usage=usage_summary,
             tokens=token_summary,
             projects=project_breakdown,
-            models=model_breakdown
+            models=model_breakdown,
+            token_trend=token_trend
         )
 
     except ValueError as e:
@@ -466,13 +468,18 @@ def api_dashboard() -> str:
         project_breakdown: Dict[str, Any] = service.get_project_breakdown(time_filter=time_filter)
         model_breakdown: Dict[str, Any] = service.get_model_breakdown(time_filter=time_filter)
 
+        # For "All Time", show last 14 days on chart for better context
+        chart_days = 14 if period == 'all' else 7
+        token_trend: Dict[str, Any] = service.get_daily_token_trend(days=chart_days, time_filter=time_filter)
+
         # Render partial template
         return render_template(
             'partials/dashboard_content.html',
             usage=usage_summary,
             tokens=token_summary,
             projects=project_breakdown,
-            models=model_breakdown
+            models=model_breakdown,
+            token_trend=token_trend
         )
     
     except Exception as e:
