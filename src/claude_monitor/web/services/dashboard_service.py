@@ -451,17 +451,19 @@ class DashboardService:
         Get daily token usage for trend chart.
 
         Args:
-            days: Number of days to include (default 7)
-            time_filter: Optional time filter - if provided, calculates days from filter
+            days: Number of days to include (default 7). Note: when time_filter
+                  is provided, days is calculated from the filter's start_time
+                  and this parameter is ignored.
+            time_filter: Optional time filter - if provided, overrides days parameter
 
         Returns:
             Dict with labels and data arrays for charting
         """
-        # If time filter is provided, calculate days from it
+        # If time filter is provided, calculate days from it (overrides days param)
         if time_filter and time_filter.start_time:
             now = datetime.now()
             delta = now - time_filter.start_time
-            days = max(1, delta.days)  # At least 1 day
+            days = max(1, delta.days + 1)  # Include current partial day, at least 1 day
 
         daily_stats = self._session_parser.get_daily_stats(days=days, time_filter=time_filter)
 

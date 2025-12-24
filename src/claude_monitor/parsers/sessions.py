@@ -288,7 +288,7 @@ class SessionParser:
         Get token statistics aggregated by day.
 
         Args:
-            days: Number of days to include (default 7)
+            days: Number of days to include (default 7), including today
             time_filter: Optional time filter
 
         Returns:
@@ -300,7 +300,7 @@ class SessionParser:
         daily_stats: dict[str, SessionStats] = {}
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-        for i in range(days, -1, -1):  # Include today
+        for i in range(days - 1, -1, -1):  # days entries, including today
             day = today - timedelta(days=i)
             date_key = day.strftime('%Y-%m-%d')
             daily_stats[date_key] = SessionStats()
