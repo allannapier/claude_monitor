@@ -227,18 +227,28 @@ def features() -> str:
         service = current_app.dashboard_service
 
         # Get tool usage data
-        top_tools = service.get_top_tools(limit=10)
+        top_tools = service.get_top_tools(limit=20)
+        features_summary = service.get_features_summary()
 
-        # Calculate summary stats
-        total_tools = len(top_tools.get('tools', []))
-        total_calls = sum(tool.get('invocation_count', 0) for tool in top_tools.get('tools', []))
-        most_used_tool = top_tools['tools'][0]['tool_name'] if top_tools.get('tools') else 'N/A'
+        # Build tool_usage list with proper field names for template
+        tool_usage = []
+        for tool in top_tools.get('tools', []):
+            tool_usage.append({
+                'name': tool.get('tool_name', ''),
+                'category': tool.get('category', 'tool'),
+                'usage_count': tool.get('invocation_count', 0),
+                'total_tokens': tool.get('total_tokens', 0),
+                'cost': tool.get('total_cost', 0.0),
+            })
 
         features_data = {
-            'total_tools': total_tools,
-            'total_tool_calls': total_calls,
-            'most_used_tool': most_used_tool,
-            'top_tools': top_tools.get('tools', [])
+            'total_tools': len(tool_usage),
+            'total_calls': top_tools.get('total_calls', 0),
+            'total_tokens': top_tools.get('total_tokens', 0),
+            'total_cost': top_tools.get('total_cost', 0.0),
+            'sub_agents_used': features_summary.get('subagents', {}).get('unique_used', 0),
+            'tool_usage': tool_usage,
+            'categories': features_summary.get('categories', {}),
         }
 
         return render_template('pages/features.html', features=features_data)
@@ -678,7 +688,31 @@ def api_features() -> str:
             if start_time:
                 time_filter = TimeFilter(start_time=start_time, end_time=now)
 
-        features_data = service.get_features_statistics(time_filter=time_filter)
+        # Get tool usage data
+        top_tools = service.get_top_tools(limit=20, time_filter=time_filter)
+        features_summary = service.get_features_summary(time_filter=time_filter)
+
+        # Build tool_usage list with proper field names for template
+        tool_usage = []
+        for tool in top_tools.get('tools', []):
+            tool_usage.append({
+                'name': tool.get('tool_name', ''),
+                'category': tool.get('category', 'tool'),
+                'usage_count': tool.get('invocation_count', 0),
+                'total_tokens': tool.get('total_tokens', 0),
+                'cost': tool.get('total_cost', 0.0),
+            })
+
+        features_data = {
+            'total_tools': len(tool_usage),
+            'total_calls': top_tools.get('total_calls', 0),
+            'total_tokens': top_tools.get('total_tokens', 0),
+            'total_cost': top_tools.get('total_cost', 0.0),
+            'sub_agents_used': features_summary.get('subagents', {}).get('unique_used', 0),
+            'tool_usage': tool_usage,
+            'categories': features_summary.get('categories', {}),
+        }
+
         return render_template('partials/features_content.html', features=features_data)
 
     except Exception as e:

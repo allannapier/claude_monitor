@@ -88,6 +88,24 @@ def create_app(claude_data_paths: Optional[ClaudeDataPaths] = None) -> Flask:
             hours = seconds / 3600
             return f'{hours:.1f}h'
 
+    @app.template_filter('format_compact')
+    def format_compact(value: float) -> str:
+        """Format a large number in compact form (e.g., 1.5M, 234K)."""
+        if value is None:
+            return '0'
+        try:
+            num = float(value)
+            if num >= 1_000_000_000:
+                return f'{num / 1_000_000_000:,.2f}B'
+            elif num >= 1_000_000:
+                return f'{num / 1_000_000:,.2f}M'
+            elif num >= 1_000:
+                return f'{num / 1_000:,.1f}K'
+            else:
+                return f'{num:,.0f}'
+        except (ValueError, TypeError):
+            return str(value)
+
     # Initialize dashboard service
     if claude_data_paths is None:
         claude_data_paths = get_claude_paths()

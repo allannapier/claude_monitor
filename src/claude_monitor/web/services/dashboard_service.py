@@ -641,13 +641,8 @@ class DashboardService:
                 'stats': {
                     name: {
                         'invocation_count': stats.invocation_count,
-                        'success_count': stats.success_count,
-                        'error_count': stats.error_count,
-                        'success_rate': round(
-                            (stats.success_count / stats.invocation_count * 100)
-                            if stats.invocation_count > 0 else 0,
-                            2
-                        ),
+                        'total_tokens': stats.total_tokens,
+                        'session_count': stats.session_count,
                     }
                     for name, stats in summary.subagent_stats.items()
                 },
@@ -658,7 +653,7 @@ class DashboardService:
                     {
                         'name': skill.name,
                         'description': skill.description,
-                        'enabled': skill.enabled,
+                        'has_skills_md': skill.has_skills_md,
                     }
                     for skill in summary.installed_skills
                 ],
@@ -680,8 +675,8 @@ class DashboardService:
                 'stats': {
                     name: {
                         'invocation_count': stats.invocation_count,
-                        'success_count': stats.success_count,
-                        'error_count': stats.error_count,
+                        'total_tokens': stats.total_tokens,
+                        'session_count': stats.session_count,
                     }
                     for name, stats in summary.tool_stats.items()
                 },
@@ -703,30 +698,52 @@ class DashboardService:
         Returns:
             List of top tools with usage stats
         """
+        from ...analyzers.tokens import DEFAULT_PRICING
+
         analyzer = self._features_analyzer
         if time_filter:
             analyzer = self._create_time_filtered_service(time_filter)._features_analyzer
 
         top_tools = analyzer.get_top_tools(limit=limit)
 
-        tools_data = [
-            {
+        total_tokens = 0
+        total_cost = 0.0
+        total_calls = 0
+        tools_data = []
+
+        for name, stats in top_tools:
+            # Calculate cost using default Sonnet pricing
+            input_cost = (stats.total_input_tokens / 1_000_000) * DEFAULT_PRICING['input_per_mtok']
+            output_cost = (stats.total_output_tokens / 1_000_000) * DEFAULT_PRICING['output_per_mtok']
+            cache_read_cost = (stats.total_cache_read_tokens / 1_000_000) * DEFAULT_PRICING['cache_read_per_mtok']
+            cache_write_cost = (stats.total_cache_write_tokens / 1_000_000) * DEFAULT_PRICING['cache_write_per_mtok']
+            tool_cost = input_cost + output_cost + cache_read_cost + cache_write_cost
+
+            total_tokens += stats.total_tokens
+            total_cost += tool_cost
+            total_calls += stats.invocation_count
+
+            tools_data.append({
                 'tool_name': name,
                 'invocation_count': stats.invocation_count,
                 'total_tokens': stats.total_tokens,
+                'input_tokens': stats.total_input_tokens,
+                'output_tokens': stats.total_output_tokens,
+                'total_cost': round(tool_cost, 4),
                 'avg_tokens_per_call': round(
                     stats.total_tokens / stats.invocation_count
                     if stats.invocation_count > 0 else 0,
                     1
                 ),
                 'session_count': stats.session_count,
-            }
-            for name, stats in top_tools
-        ]
+            })
 
         return {
             'tools': tools_data,
             'total_shown': len(tools_data),
+            'total_tokens': total_tokens,
+            'total_calls': total_calls,
+            'total_cost': round(total_cost, 2),
         }
 
     def get_top_subagents(self, limit: int = 10, time_filter: Optional[TimeFilter] = None) -> Dict[str, Any]:
