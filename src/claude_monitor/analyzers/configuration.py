@@ -3,7 +3,6 @@
 from pathlib import Path
 from typing import Dict, Any, List
 from ..parsers.configuration_scanner import ConfigurationScanner
-from ..models import ConfigurationFeatures, InheritanceChain
 
 
 class ConfigurationAnalyzer:

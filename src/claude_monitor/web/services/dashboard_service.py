@@ -7,7 +7,6 @@ while returning data as dicts/dataclasses suitable for web rendering.
 
 from pathlib import Path
 from typing import Optional, Dict, List, Any
-from dataclasses import asdict
 
 from ...utils.paths import get_claude_paths, ClaudeDataPaths
 from ...utils.time_filter import TimeFilter
@@ -15,8 +14,8 @@ from ...parsers.history import HistoryParser
 from ...parsers.sessions import SessionParser
 from ...parsers.debug import DebugLogParser
 from ...parsers.files import FileHistoryParser
-from ...parsers.tools import ToolUsageParser, ToolStats
-from ...parsers.skills import SkillsParser, ConfigurationParser, SkillInfo
+from ...parsers.tools import ToolUsageParser
+from ...parsers.skills import SkillsParser, ConfigurationParser
 from ...parsers.configuration_scanner import ConfigurationScanner
 from ...analyzers.usage import UsageAnalyzer, UsageSummary
 from ...analyzers.tokens import TokenAnalyzer, TokenSummary, get_model_display_name

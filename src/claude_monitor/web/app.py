@@ -6,7 +6,7 @@ the Claude Monitor web application.
 
 import os
 from datetime import datetime
-from flask import Flask, render_template, jsonify
+from flask import Flask, jsonify
 from typing import Optional
 
 from ..utils.paths import ClaudeDataPaths, get_claude_paths

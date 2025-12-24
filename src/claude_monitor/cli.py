@@ -74,15 +74,15 @@ def main(port, host, debug, claude_dir):
         app = create_app(paths)
 
         # Display startup information
-        console.print(f"\n[cyan]═══ Claude Monitor Web Server ═══[/cyan]")
-        console.print(f"[dim]Starting web interface...[/dim]\n")
+        console.print("\n[cyan]═══ Claude Monitor Web Server ═══[/cyan]")
+        console.print("[dim]Starting web interface...[/dim]\n")
         console.print(f"[green]✓ Server running at:[/green] [bold]http://{host}:{port}[/bold]")
 
         if debug:
-            console.print(f"[yellow]⚠ Debug mode:[/yellow] [bold]Enabled[/bold] (auto-reload on code changes)")
+            console.print("[yellow]⚠ Debug mode:[/yellow] [bold]Enabled[/bold] (auto-reload on code changes)")
 
         console.print(f"[dim]📊 Data source:[/dim] [dim]{paths.base_dir}[/dim]")
-        console.print(f"\n[dim]Press Ctrl+C to stop the server[/dim]\n")
+        console.print("\n[dim]Press Ctrl+C to stop the server[/dim]\n")
 
         # Run Flask app
         app.run(host=host, port=port, debug=debug)

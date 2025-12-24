@@ -1,10 +1,9 @@
 """Scanner for Claude Code configurations across repositories."""
 
 import json
-import re
 from pathlib import Path
-from typing import List, Optional, Dict, Any
-from .skills import ConfigurationParser, SkillsParser
+from typing import List, Optional
+from .skills import ConfigurationParser
 from ..models import (
     ConfigSource,
     RepositoryConfig,
