@@ -1,5 +1,6 @@
 """Dashboard route handler for Claude Monitor web application."""
 
+from datetime import datetime, timedelta
 from typing import Any, Dict
 from flask import Blueprint, render_template, current_app
 import logging
@@ -438,7 +439,6 @@ def api_dashboard() -> str:
     """
     from flask import request
     from ...utils.time_filter import TimeFilter
-    from datetime import datetime, timedelta
     
     try:
         service = current_app.dashboard_service
@@ -494,7 +494,6 @@ def api_projects() -> str:
     """
     from flask import request
     from ...utils.time_filter import TimeFilter
-    from datetime import datetime, timedelta
 
     try:
         service = current_app.dashboard_service
@@ -543,7 +542,6 @@ def api_files() -> str:
     """API endpoint for HTMX to fetch filtered files data."""
     from flask import request
     from ...utils.time_filter import TimeFilter
-    from datetime import datetime, timedelta
 
     try:
         service = current_app.dashboard_service
@@ -577,7 +575,6 @@ def api_integrations() -> str:
     """API endpoint for HTMX to fetch filtered integrations data."""
     from flask import request
     from ...utils.time_filter import TimeFilter
-    from datetime import datetime, timedelta
 
     try:
         service = current_app.dashboard_service
@@ -618,7 +615,6 @@ def api_tokens() -> str:
     """API endpoint for HTMX to fetch filtered tokens data."""
     from flask import request
     from ...utils.time_filter import TimeFilter
-    from datetime import datetime, timedelta
 
     try:
         service = current_app.dashboard_service
@@ -667,7 +663,6 @@ def api_features() -> str:
     """API endpoint for HTMX to fetch filtered features data."""
     from flask import request
     from ...utils.time_filter import TimeFilter
-    from datetime import datetime, timedelta
 
     try:
         service = current_app.dashboard_service

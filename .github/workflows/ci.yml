@@ -36,7 +36,8 @@ jobs:
 
       - name: Check for security vulnerabilities in dependencies
         run: |
-          pip-audit --strict --desc || true
+          # Skip local package (not on PyPI), only audit dependencies
+          pip-audit --strict --desc --ignore-vuln GHSA-0000-0000-0000 --skip-editable || true
 
       - name: Verify package imports correctly
         run: |
@@ -65,7 +66,8 @@ jobs:
       - name: Run pip-audit
         run: |
           pip install -e .
-          pip-audit --strict --desc
+          # Skip local editable package (not on PyPI)
+          pip-audit --strict --desc --skip-editable
 
       - name: Run safety check
         run: |
