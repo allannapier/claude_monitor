@@ -1,12 +1,18 @@
+<div align="center">
+
 # Claude Monitor
+
+### The missing dashboard for Claude Code — track costs, optimize usage, stay in control.
 
 ![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Maintained](https://img.shields.io/badge/Maintained%3F-yes-green.svg)
 
-**Web-based usage monitoring and analytics for Claude Code**
+<img src="docs/images/hero-viewport.png" alt="Claude Monitor Dashboard" width="800">
 
-Track your Claude Code usage, token consumption, costs, and productivity metrics through an intuitive web dashboard. Monitor cache efficiency, analyze project breakdowns, and optimize your AI-assisted development workflow.
+</div>
+
+---
 
 ## Overview
 
