@@ -480,15 +480,21 @@ class DashboardService:
             )
             data.append(total)
 
-            # Create human-readable label
+            # Create human-readable label based on how many days we're showing
             date = datetime.strptime(date_str, '%Y-%m-%d')
             days_ago = (today - date).days
-            if days_ago == 0:
-                labels.append('Today')
-            elif days_ago == 1:
-                labels.append('Yesterday')
+
+            if days <= 7:
+                # For week or less, show relative labels
+                if days_ago == 0:
+                    labels.append('Today')
+                elif days_ago == 1:
+                    labels.append('Yesterday')
+                else:
+                    labels.append(f'{days_ago}d ago')
             else:
-                labels.append(f'{days_ago} days ago')
+                # For longer periods, show date labels (Dec 15 format)
+                labels.append(date.strftime('%b %d'))
 
         return {
             'labels': labels,

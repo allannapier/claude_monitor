@@ -42,7 +42,7 @@ def index() -> str:
         token_summary: Dict[str, Any] = service.get_token_summary()
         project_breakdown: Dict[str, Any] = service.get_project_breakdown()
         model_breakdown: Dict[str, Any] = service.get_model_breakdown()
-        token_trend: Dict[str, Any] = service.get_daily_token_trend(days=7)
+        token_trend: Dict[str, Any] = service.get_daily_token_trend(days=14)
 
         logger.debug('Dashboard data fetched successfully')
 
@@ -467,7 +467,10 @@ def api_dashboard() -> str:
         token_summary: Dict[str, Any] = service.get_token_summary(time_filter=time_filter)
         project_breakdown: Dict[str, Any] = service.get_project_breakdown(time_filter=time_filter)
         model_breakdown: Dict[str, Any] = service.get_model_breakdown(time_filter=time_filter)
-        token_trend: Dict[str, Any] = service.get_daily_token_trend(time_filter=time_filter)
+
+        # For "All Time", show last 14 days on chart for better context
+        chart_days = 14 if period == 'all' else 7
+        token_trend: Dict[str, Any] = service.get_daily_token_trend(days=chart_days, time_filter=time_filter)
 
         # Render partial template
         return render_template(
