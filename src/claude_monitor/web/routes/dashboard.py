@@ -203,7 +203,7 @@ def integrations() -> str:
             'total_tokens': mcp_data.get('total_tokens', 0),
             'total_cost': mcp_data.get('total_cost', 0.0),
             'most_used_server': mcp_data['most_used_server'],
-            'servers': mcp_data['servers']
+            'server_activity': mcp_data['servers']
         }
 
         return render_template(
@@ -216,7 +216,7 @@ def integrations() -> str:
         logger.error(f'Error loading integrations page: {e}', exc_info=True)
         return render_template('pages/integrations.html', integrations={
             'most_used_ide': 'CLI',
-            'servers': []
+            'server_activity': []
         })
 
 
