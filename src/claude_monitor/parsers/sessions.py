@@ -314,3 +314,161 @@ class SessionParser:
                     daily_stats[date_key].add_message(message)
 
         return daily_stats
+
+    def get_daily_cost_trend(
+        self,
+        days: int = 7,
+        time_filter: Optional[TimeFilter] = None
+    ) -> dict[str, dict[str, float]]:
+        """
+        Get daily cost statistics for trend visualization.
+
+        Args:
+            days: Number of days to include (default 7), including today
+            time_filter: Optional time filter
+
+        Returns:
+            Dict mapping date strings (YYYY-MM-DD) to cost breakdowns with keys:
+            - input_cost: Cost of input tokens
+            - output_cost: Cost of output tokens
+            - cache_write_cost: Cost of cache creation
+            - cache_read_cost: Cost of cache reads
+            - total_cost: Total cost for the day
+        """
+        # Define pricing constants locally to avoid cyclic import
+        DEFAULT_PRICING = {
+            'input_per_mtok': 3.0,
+            'output_per_mtok': 15.0,
+            'cache_write_per_mtok': 3.75,
+            'cache_read_per_mtok': 0.30,
+        }
+
+        daily_stats = self.get_daily_stats(days=days, time_filter=time_filter)
+
+        daily_costs = {}
+        for date_str, stats in daily_stats.items():
+            # Calculate costs for each token type using default pricing
+            # (This is an approximation since model-specific pricing varies)
+            input_cost = (stats.total_tokens.input_tokens / 1_000_000) * DEFAULT_PRICING['input_per_mtok']
+            output_cost = (stats.total_tokens.output_tokens / 1_000_000) * DEFAULT_PRICING['output_per_mtok']
+            cache_write_cost = (stats.total_tokens.cache_creation_input_tokens / 1_000_000) * DEFAULT_PRICING['cache_write_per_mtok']
+            cache_read_cost = (stats.total_tokens.cache_read_input_tokens / 1_000_000) * DEFAULT_PRICING['cache_read_per_mtok']
+
+            daily_costs[date_str] = {
+                'input_cost': round(input_cost, 4),
+                'output_cost': round(output_cost, 4),
+                'cache_write_cost': round(cache_write_cost, 4),
+                'cache_read_cost': round(cache_read_cost, 4),
+                'total_cost': round(input_cost + output_cost + cache_write_cost + cache_read_cost, 4),
+            }
+
+        return daily_costs
+
+    def get_project_daily_stats(
+        self,
+        days: int = 7,
+        time_filter: Optional[TimeFilter] = None,
+        max_projects: int = 10
+    ) -> dict[str, dict[str, dict[str, float]]]:
+        """
+        Get daily cost statistics per project for trend visualization.
+
+        Args:
+            days: Number of days to include (default 7), including today
+            time_filter: Optional time filter
+            max_projects: Maximum number of top projects to include
+
+        Returns:
+            Dict mapping project names to date strings to cost data:
+            {
+                "project_name": {
+                    "2024-01-01": {"total_cost": 0.50, ...},
+                    ...
+                }
+            }
+        """
+        from datetime import timedelta
+
+        # Define pricing constants locally to avoid cyclic import
+        DEFAULT_PRICING = {
+            'input_per_mtok': 3.0,
+            'output_per_mtok': 15.0,
+            'cache_write_per_mtok': 3.75,
+            'cache_read_per_mtok': 0.30,
+        }
+
+        # First, get overall project stats to find top projects by total cost
+        all_project_stats = self.get_project_stats(time_filter=time_filter)
+
+        # Calculate total cost for each project
+        project_costs = {}
+        for project_path, stats in all_project_stats.items():
+            input_cost = (stats.total_tokens.input_tokens / 1_000_000) * DEFAULT_PRICING['input_per_mtok']
+            output_cost = (stats.total_tokens.output_tokens / 1_000_000) * DEFAULT_PRICING['output_per_mtok']
+            cache_write_cost = (stats.total_tokens.cache_creation_input_tokens / 1_000_000) * DEFAULT_PRICING['cache_write_per_mtok']
+            cache_read_cost = (stats.total_tokens.cache_read_input_tokens / 1_000_000) * DEFAULT_PRICING['cache_read_per_mtok']
+            project_costs[project_path] = input_cost + output_cost + cache_write_cost + cache_read_cost
+
+        # Get top projects
+        top_projects = sorted(project_costs.items(), key=lambda x: x[1], reverse=True)[:max_projects]
+
+        # Initialize result structure
+        result = {}
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Initialize dates
+        date_keys = []
+        for i in range(days - 1, -1, -1):
+            day = today - timedelta(days=i)
+            date_keys.append(day.strftime('%Y-%m-%d'))
+
+        # Collect top project paths for efficient lookup
+        project_paths = [project_path for project_path, _ in top_projects]
+        project_paths_set = set(project_paths)
+
+        # Prepare per-project, per-day stats for all top projects in a single pass
+        project_stats_map: dict[str, dict[str, SessionStats]] = {}
+        for project_path in project_paths:
+            project_stats_map[project_path] = {date_key: SessionStats() for date_key in date_keys}
+
+        # Single pass over all messages, grouped by project and date (O(n) complexity)
+        for message in self.parse_all(time_filter=time_filter):
+            project_path = message.cwd
+            if project_path not in project_paths_set:
+                continue
+
+            msg_dt = message.datetime
+            if not msg_dt:
+                continue
+
+            date_key = msg_dt.strftime('%Y-%m-%d')
+            project_stats = project_stats_map.get(project_path)
+            if project_stats and date_key in project_stats:
+                project_stats[date_key].add_message(message)
+
+        # For each top project, convert collected stats to daily costs
+        for project_path, _ in top_projects:
+            # Get short project name for display (works for both Unix and Windows paths)
+            project_name = Path(project_path).name
+
+            project_stats = project_stats_map.get(project_path, {})
+
+            # Convert to costs
+            daily_costs = {}
+            for date_key, stats in project_stats.items():
+                input_cost = (stats.total_tokens.input_tokens / 1_000_000) * DEFAULT_PRICING['input_per_mtok']
+                output_cost = (stats.total_tokens.output_tokens / 1_000_000) * DEFAULT_PRICING['output_per_mtok']
+                cache_write_cost = (stats.total_tokens.cache_creation_input_tokens / 1_000_000) * DEFAULT_PRICING['cache_write_per_mtok']
+                cache_read_cost = (stats.total_tokens.cache_read_input_tokens / 1_000_000) * DEFAULT_PRICING['cache_read_per_mtok']
+
+                daily_costs[date_key] = {
+                    'input_cost': round(input_cost, 4),
+                    'output_cost': round(output_cost, 4),
+                    'cache_write_cost': round(cache_write_cost, 4),
+                    'cache_read_cost': round(cache_read_cost, 4),
+                    'total_cost': round(input_cost + output_cost + cache_write_cost + cache_read_cost, 4),
+                }
+
+            result[project_name] = daily_costs
+
+        return result
