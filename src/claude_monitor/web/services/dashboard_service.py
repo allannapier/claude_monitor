@@ -638,7 +638,6 @@ class DashboardService:
                 'label': project_name,
                 'data': data,
                 'borderColor': color,
-                'backgroundColor': color.replace(')', ', 0.1)').replace('rgb', 'rgba').replace('#', ''),
                 'color': color,
             })
 

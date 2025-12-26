@@ -335,7 +335,13 @@ class SessionParser:
             - cache_read_cost: Cost of cache reads
             - total_cost: Total cost for the day
         """
-        from ..analyzers.tokens import TokenAnalyzer, DEFAULT_PRICING
+        # Define pricing constants locally to avoid cyclic import
+        DEFAULT_PRICING = {
+            'input_per_mtok': 3.0,
+            'output_per_mtok': 15.0,
+            'cache_write_per_mtok': 3.75,
+            'cache_read_per_mtok': 0.30,
+        }
 
         daily_stats = self.get_daily_stats(days=days, time_filter=time_filter)
 
@@ -382,7 +388,14 @@ class SessionParser:
             }
         """
         from datetime import timedelta
-        from ..analyzers.tokens import DEFAULT_PRICING
+
+        # Define pricing constants locally to avoid cyclic import
+        DEFAULT_PRICING = {
+            'input_per_mtok': 3.0,
+            'output_per_mtok': 15.0,
+            'cache_write_per_mtok': 3.75,
+            'cache_read_per_mtok': 0.30,
+        }
 
         # First, get overall project stats to find top projects by total cost
         all_project_stats = self.get_project_stats(time_filter=time_filter)
@@ -409,25 +422,36 @@ class SessionParser:
             day = today - timedelta(days=i)
             date_keys.append(day.strftime('%Y-%m-%d'))
 
-        # For each top project, collect daily data
+        # Collect top project paths for efficient lookup
+        project_paths = [project_path for project_path, _ in top_projects]
+        project_paths_set = set(project_paths)
+
+        # Prepare per-project, per-day stats for all top projects in a single pass
+        project_stats_map: dict[str, dict[str, SessionStats]] = {}
+        for project_path in project_paths:
+            project_stats_map[project_path] = {date_key: SessionStats() for date_key in date_keys}
+
+        # Single pass over all messages, grouped by project and date (O(n) complexity)
+        for message in self.parse_all(time_filter=time_filter):
+            project_path = message.cwd
+            if project_path not in project_paths_set:
+                continue
+
+            msg_dt = message.datetime
+            if not msg_dt:
+                continue
+
+            date_key = msg_dt.strftime('%Y-%m-%d')
+            project_stats = project_stats_map.get(project_path)
+            if project_stats and date_key in project_stats:
+                project_stats[date_key].add_message(message)
+
+        # For each top project, convert collected stats to daily costs
         for project_path, _ in top_projects:
-            # Get short project name for display
-            project_name = Path(project_path).name if '/' in project_path else project_path
+            # Get short project name for display (works for both Unix and Windows paths)
+            project_name = Path(project_path).name
 
-            # Filter messages for this project
-            project_stats: dict[str, SessionStats] = {}
-            for date_key in date_keys:
-                project_stats[date_key] = SessionStats()
-
-            for message in self.parse_all(time_filter=time_filter):
-                if message.cwd != project_path:
-                    continue
-
-                msg_dt = message.datetime
-                if msg_dt:
-                    date_key = msg_dt.strftime('%Y-%m-%d')
-                    if date_key in project_stats:
-                        project_stats[date_key].add_message(message)
+            project_stats = project_stats_map.get(project_path, {})
 
             # Convert to costs
             daily_costs = {}
