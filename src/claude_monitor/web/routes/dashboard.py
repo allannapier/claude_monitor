@@ -821,4 +821,4 @@ def export_data(format: str) -> Any:
     
     except Exception as e:
         logger.error(f'Error exporting data: {e}', exc_info=True)
-        return f'Error exporting data: {str(e)}', 500
+        return 'Error exporting data. Please check the server logs for more details.', 500
