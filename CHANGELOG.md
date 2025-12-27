@@ -5,6 +5,23 @@ All notable changes to Claude Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-12-27
+
+### Added
+- Automated PyPI publishing via GitHub Actions
+- Cross-platform binary builds (macOS, Linux, Windows) using PyInstaller
+- Pre-built executable distribution through GitHub Releases
+- Complete release infrastructure and documentation
+
+### Changed
+- Installation now supports three methods: PyPI, pre-built binaries, and from source
+- Updated README with installation instructions for all distribution methods
+
+### Fixed
+- Security: Fixed 8 instances of empty except blocks with specific exception handling
+- Cross-platform compatibility in PyInstaller spec file
+- Improved dependency handling for web components (Flask templates and static assets)
+
 ## [1.0.0] - 2025-12-20
 
 ### Added
