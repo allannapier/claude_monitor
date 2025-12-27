@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="claude-monitor",
-    version="1.0.0",
+    version="1.0.1",
     description="Web-based usage monitoring tool for Claude Code",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
