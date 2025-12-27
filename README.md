@@ -49,6 +49,40 @@ Claude Monitor provides comprehensive analytics for your Claude Code usage by re
 
 ### Installation
 
+Choose the installation method that works best for you:
+
+#### Option 1: PyPI (Recommended for Python users)
+
+```bash
+pip install claude-monitor
+```
+
+#### Option 2: Pre-built Binary (No Python required)
+
+Download the latest executable for your platform from [Releases](https://github.com/allannapier/claude_monitor/releases):
+
+**macOS:**
+```bash
+# Download claude-monitor-macos from releases
+chmod +x claude-monitor-macos
+./claude-monitor-macos
+```
+
+**Linux:**
+```bash
+# Download claude-monitor from releases
+chmod +x claude-monitor
+./claude-monitor
+```
+
+**Windows:**
+```bash
+# Download claude-monitor.exe from releases
+claude-monitor.exe
+```
+
+#### Option 3: From Source (For development)
+
 ```bash
 # Clone the repository
 git clone https://github.com/allannapier/claude_monitor.git
