@@ -47,7 +47,7 @@ class SkillInfo:
                     first_line = f.readline().strip()
                     # Remove markdown header markers
                     description = first_line.lstrip('#').strip()
-            except (OSError, ValueError):
+            except OSError:
                 # Description is optional; use empty string as default
                 pass
 
