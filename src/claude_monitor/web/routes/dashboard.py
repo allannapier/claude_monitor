@@ -780,7 +780,7 @@ def api_project_analyze() -> Any:
             time_filter=time_filter
         )
 
-        return jsonify(analysis)
+        return jsonify(analysis), 200
 
     except Exception as e:
         logger.error(f'Error analyzing project: {e}', exc_info=True)
