@@ -1,5 +1,5 @@
 [project]
-name = "claude-monitor"
+name = "monitor-claude"
 version = "1.0.1"
 description = "Web-based usage monitoring tool for Claude Code"
 authors = [{name = "Allan Napier"}]
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-claude-monitor = "claude_monitor.cli:main"
+monitor-claude = "claude_monitor.cli:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]
