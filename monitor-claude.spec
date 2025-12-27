@@ -4,11 +4,11 @@ block_cipher = None
 
 a = Analysis(
     ['src/claude_monitor/cli.py'],
-    pathex=[],
+    pathex=['src'],
     binaries=[],
     datas=[
-        ('src/claude_monitor/web/templates', 'templates'),
-        ('src/claude_monitor/web/static', 'static'),
+        ('src/claude_monitor/web/templates', 'claude_monitor/web/templates'),
+        ('src/claude_monitor/web/static', 'claude_monitor/web/static'),
     ],
     hiddenimports=[
         'flask',
@@ -16,6 +16,11 @@ a = Analysis(
         'click',
         'rich',
         'dateutil',
+        'claude_monitor',
+        'claude_monitor.utils',
+        'claude_monitor.utils.paths',
+        'claude_monitor.web',
+        'claude_monitor.web.app',
     ],
     hookspath=[],
     hooksconfig={},
