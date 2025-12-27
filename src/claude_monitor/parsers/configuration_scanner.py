@@ -447,7 +447,7 @@ class ConfigurationScanner:
                 path=cmd_file,
                 description=description
             )
-        except (OSError, ValueError):
+        except OSError:
             return None
 
     def _parse_plugins(self, user_claude_dir: Path) -> List[Plugin]:
