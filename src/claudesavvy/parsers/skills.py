@@ -1,9 +1,12 @@
 """Parser for Claude Code skills."""
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -114,16 +117,32 @@ class SkillsParser:
                 data = json.load(f)
 
             plugins = data.get('plugins', {})
-            for plugin_name, plugin_info in plugins.items():
-                install_path = Path(plugin_info.get('installPath', ''))
-                if install_path.exists():
-                    skills_dir = install_path / 'skills'
-                    if skills_dir.exists():
-                        for skill_dir in skills_dir.iterdir():
-                            if skill_dir.is_dir() and not skill_dir.name.startswith('.'):
-                                skill_info = SkillInfo.from_directory(skill_dir)
-                                if skill_info:
-                                    skills.append(skill_info)
+            for plugin_name, plugin_entries in plugins.items():
+                # plugin_entries is a list of plugin info objects
+                if not isinstance(plugin_entries, list):
+                    logger.warning(
+                        f"Unexpected data structure for plugin '{plugin_name}': "
+                        f"expected list, got {type(plugin_entries).__name__}"
+                    )
+                    continue
+
+                for plugin_info in plugin_entries:
+                    if not isinstance(plugin_info, dict):
+                        logger.warning(
+                            f"Unexpected plugin info type for '{plugin_name}': "
+                            f"expected dict, got {type(plugin_info).__name__}"
+                        )
+                        continue
+
+                    install_path = Path(plugin_info.get('installPath', ''))
+                    if install_path.exists():
+                        skills_dir = install_path / 'skills'
+                        if skills_dir.exists():
+                            for skill_dir in skills_dir.iterdir():
+                                if skill_dir.is_dir() and not skill_dir.name.startswith('.'):
+                                    skill_info = SkillInfo.from_directory(skill_dir)
+                                    if skill_info:
+                                        skills.append(skill_info)
         except (OSError, json.JSONDecodeError):
             # Failed to read plugin data; skip this plugin
             pass
