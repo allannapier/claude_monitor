@@ -1,6 +1,47 @@
 # Changelog
 
-All notable changes to Claude Monitor will be documented in this file.
+All notable changes to ClaudeSavvy will be documented in this file.
+
+## [2.0.0] - 2025-12-29
+
+### Changed
+- **BREAKING**: Major rebrand from "Claude Monitor" to "ClaudeSavvy"
+- **BREAKING**: Package name changed from `claude-monitor` to `claudesavvy` on PyPI
+- **BREAKING**: Command changed from `claude-monitor` to `claudesavvy`
+- Repository name remains as `claude_monitor` for historical reasons
+- Updated all documentation to reflect new brand name
+- Refreshed README with new branding, tagline, and visual identity
+- Updated package description to emphasize "dashboard" functionality
+
+### Fixed
+- Reorganized dashboard page layout for better navigation (see #18)
+- Updated all references in documentation and configuration files
+
+### Migration Guide
+
+If you were using Claude Monitor v1.x:
+
+**Before (v1.x):**
+```bash
+pip install claude-monitor
+claude-monitor
+```
+
+**Now (v2.0.0):**
+```bash
+pip install claudesavvy
+claudesavvy
+```
+
+To upgrade from v1.x to v2.0.0:
+```bash
+pip uninstall claude-monitor
+pip install claudesavvy
+```
+
+Note: Your data files remain unchanged. Only the package name and command have changed.
+
+## [1.0.1] - 2025-12-27
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
