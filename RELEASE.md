@@ -137,13 +137,13 @@ claude-monitor
 ```
 
 **Option 2: Binary (no Python required)**
-- Download executable from [Releases](https://github.com/allannapier/claude_monitor/releases)
+- Download executable from [Releases](https://github.com/allannapier/claudesavvy/releases)
 - Run directly
 
 ### For Developers
 
 ```bash
-git clone https://github.com/allannapier/claude_monitor
+git clone https://github.com/allannapier/claudesavvy
 cd claude_monitor
 pip install -e .
 claude-monitor

@@ -38,7 +38,7 @@ If you discover a security vulnerability in Claude Monitor, please report it res
 ### How to Report
 
 1. **GitHub Security Advisories** (Preferred):
-   - Go to https://github.com/allannapier/claude_monitor/security/advisories
+   - Go to https://github.com/allannapier/claudesavvy/security/advisories
    - Click "Report a vulnerability"
    - Fill out the security advisory form
 

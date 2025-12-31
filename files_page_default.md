@@ -581,7 +581,7 @@ uid=6_0 RootWebArea "Files - Claude Monitor" url="http://localhost:5000/files"
                     uid=6_580 StaticText "Open-source usage tracking for Claude Code"
                       uid=6_581 InlineTextBox "Open-source usage tracking for Claude Code"
               uid=6_582 ignored
-                uid=6_583 link "GitHub" url="https://github.com/allannapier/claude_monitor"
+                uid=6_583 link "GitHub" url="https://github.com/allannapier/claudesavvy"
                   uid=6_584 image
                   uid=6_585 StaticText "GitHub"
                     uid=6_586 InlineTextBox "GitHub"

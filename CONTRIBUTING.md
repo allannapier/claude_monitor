@@ -21,7 +21,7 @@ Be respectful and constructive in all interactions. We're all here to build some
 
 ```bash
 # Clone the repository
-git clone https://github.com/allannapier/claude_monitor.git
+git clone https://github.com/allannapier/claudesavvy.git
 cd claude_monitor
 
 # Create a virtual environment (recommended)

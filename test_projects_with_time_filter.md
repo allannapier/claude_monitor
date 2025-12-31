@@ -449,7 +449,7 @@ uid=5_0 RootWebArea "Projects - Claude Monitor" url="http://localhost:5000/proje
                     uid=5_448 StaticText "Open-source usage tracking for Claude Code"
                       uid=5_449 InlineTextBox "Open-source usage tracking for Claude Code"
               uid=5_450 ignored
-                uid=5_451 link "GitHub" url="https://github.com/allannapier/claude_monitor"
+                uid=5_451 link "GitHub" url="https://github.com/allannapier/claudesavvy"
                   uid=5_452 image
                   uid=5_453 StaticText "GitHub"
                     uid=5_454 InlineTextBox "GitHub"

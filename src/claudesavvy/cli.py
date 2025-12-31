@@ -102,7 +102,7 @@ def main(port, host, debug, claude_dir):
     except Exception as e:
         console.print(f"\n[red]✗ Unexpected error:[/red] {e}")
         console.print("\n[dim]If this issue persists, please report it at:")
-        console.print("https://github.com/allannapier/claude_monitor/issues[/dim]\n")
+        console.print("https://github.com/allannapier/claudesavvy/issues[/dim]\n")
         sys.exit(1)
 
 
