@@ -2,6 +2,28 @@
 
 All notable changes to ClaudeSavvy will be documented in this file.
 
+## [2.1.0] - 2025-12-31
+
+### Added
+- **New**: Customizable model pricing configuration
+- **New**: Settings page at `/settings` to configure pricing per model
+- **New**: API endpoints for getting and updating model pricing (`GET/POST /api/pricing`, `POST /api/pricing/reset`)
+- **New**: Dynamic model discovery - settings page only shows models that have been used (no hardcoded models)
+- **New**: Pricing data stored in `pricing.json` for persistence
+- **New**: Default pricing ($3.00 input, $15.00 output per million tokens) for unconfigured models
+
+### Changed
+- Updated token calculation to use custom pricing when available
+- Updated dashboard service to use custom pricing throughout
+- Added settings link to navigation
+- Removed hardcoded model list - now truly flexible for any LLM models
+
+### Technical Details
+- Added `pricing.py` utility module for pricing management
+- Models are dynamically discovered from session data
+- Any new models automatically appear with default pricing
+- Works with any models (Claude, GLM, local LLMs, etc.)
+
 ## [2.0.1] - 2025-12-29
 
 ### Fixed
