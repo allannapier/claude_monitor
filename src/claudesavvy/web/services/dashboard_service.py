@@ -11,6 +11,7 @@ from typing import Optional, Dict, List, Any
 
 from ...utils.paths import get_claude_paths, ClaudeDataPaths
 from ...utils.time_filter import TimeFilter
+from ...utils.pricing import PricingSettings
 from ...parsers.history import HistoryParser
 from ...parsers.sessions import SessionParser
 from ...parsers.debug import DebugLogParser
@@ -19,7 +20,7 @@ from ...parsers.tools import ToolUsageParser
 from ...parsers.skills import SkillsParser, ConfigurationParser
 from ...parsers.configuration_scanner import ConfigurationScanner
 from ...analyzers.usage import UsageAnalyzer, UsageSummary
-from ...analyzers.tokens import TokenAnalyzer, TokenSummary, get_model_display_name
+from ...analyzers.tokens import TokenAnalyzer, TokenSummary, get_model_display_name, DEFAULT_PRICING
 from ...analyzers.integrations import IntegrationAnalyzer, IntegrationSummary
 from ...analyzers.features import FeaturesAnalyzer, FeaturesSummary
 from ...analyzers.configuration import ConfigurationAnalyzer
@@ -62,6 +63,9 @@ class DashboardService:
         project_map = self._build_project_map()
         self._debug_parser = DebugLogParser(self.paths.get_debug_log_files(), project_map)
 
+        # Initialize pricing settings
+        self._pricing_settings = PricingSettings(self.paths.base_dir)
+
         # Initialize analyzers (no time filter by default)
         self._usage_analyzer = UsageAnalyzer(
             self._history_parser,
@@ -70,7 +74,8 @@ class DashboardService:
         )
         self._token_analyzer = TokenAnalyzer(
             self._session_parser,
-            time_filter=None
+            time_filter=None,
+            pricing_settings=self._pricing_settings
         )
         self._integration_analyzer = IntegrationAnalyzer(self._debug_parser)
         self._features_analyzer = FeaturesAnalyzer(
@@ -136,6 +141,7 @@ class DashboardService:
         """
         service = DashboardService.__new__(DashboardService)
         service.paths = self.paths
+        service._pricing_settings = self._pricing_settings
         service._history_parser = self._history_parser
         service._session_parser = self._session_parser
         service._file_parser = self._file_parser
@@ -152,7 +158,8 @@ class DashboardService:
         )
         service._token_analyzer = TokenAnalyzer(
             self._session_parser,
-            time_filter=time_filter
+            time_filter=time_filter,
+            pricing_settings=self._pricing_settings
         )
         service._integration_analyzer = IntegrationAnalyzer(self._debug_parser)
         service._features_analyzer = FeaturesAnalyzer(
@@ -911,8 +918,6 @@ class DashboardService:
         Returns:
             List of top tools with usage stats
         """
-        from ...analyzers.tokens import DEFAULT_PRICING
-
         analyzer = self._features_analyzer
         if time_filter:
             analyzer = self._create_time_filtered_service(time_filter)._features_analyzer
@@ -926,10 +931,12 @@ class DashboardService:
 
         for name, stats in top_tools:
             # Calculate cost using default Sonnet pricing
-            input_cost = (stats.total_input_tokens / 1_000_000) * DEFAULT_PRICING['input_per_mtok']
-            output_cost = (stats.total_output_tokens / 1_000_000) * DEFAULT_PRICING['output_per_mtok']
-            cache_read_cost = (stats.total_cache_read_tokens / 1_000_000) * DEFAULT_PRICING['cache_read_per_mtok']
-            cache_write_cost = (stats.total_cache_write_tokens / 1_000_000) * DEFAULT_PRICING['cache_write_per_mtok']
+            # Note: Tool-level token tracking doesn't include model info, so we use default rates
+            pricing = DEFAULT_PRICING  # Tools don't track which model was used
+            input_cost = (stats.total_input_tokens / 1_000_000) * pricing['input_per_mtok']
+            output_cost = (stats.total_output_tokens / 1_000_000) * pricing['output_per_mtok']
+            cache_read_cost = (stats.total_cache_read_tokens / 1_000_000) * pricing['cache_read_per_mtok']
+            cache_write_cost = (stats.total_cache_write_tokens / 1_000_000) * pricing['cache_write_per_mtok']
             tool_cost = input_cost + output_cost + cache_read_cost + cache_write_cost
 
             total_tokens += stats.total_tokens
@@ -1006,8 +1013,6 @@ class DashboardService:
         Returns:
             Dict with MCP server usage data
         """
-        from ...analyzers.tokens import DEFAULT_PRICING
-
         analyzer = self._features_analyzer
         if time_filter:
             analyzer = self._create_time_filtered_service(time_filter)._features_analyzer
@@ -1054,12 +1059,13 @@ class DashboardService:
                 })
 
         # Calculate costs per server using default pricing (Sonnet 4.5)
-        # Note: Tool-level token tracking doesn't include model info, so we use default rates
+        # Note: MCP-level token tracking doesn't include model info, so we use default rates
+        pricing = DEFAULT_PRICING
         for server in servers.values():
-            input_cost = (server['input_tokens'] / 1_000_000) * DEFAULT_PRICING['input_per_mtok']
-            output_cost = (server['output_tokens'] / 1_000_000) * DEFAULT_PRICING['output_per_mtok']
-            cache_read_cost = (server['cache_read_tokens'] / 1_000_000) * DEFAULT_PRICING['cache_read_per_mtok']
-            cache_write_cost = (server['cache_write_tokens'] / 1_000_000) * DEFAULT_PRICING['cache_write_per_mtok']
+            input_cost = (server['input_tokens'] / 1_000_000) * pricing['input_per_mtok']
+            output_cost = (server['output_tokens'] / 1_000_000) * pricing['output_per_mtok']
+            cache_read_cost = (server['cache_read_tokens'] / 1_000_000) * pricing['cache_read_per_mtok']
+            cache_write_cost = (server['cache_write_tokens'] / 1_000_000) * pricing['cache_write_per_mtok']
             server['total_cost'] = round(input_cost + output_cost + cache_read_cost + cache_write_cost, 4)
 
         # Sort servers by total calls
@@ -1329,3 +1335,118 @@ class DashboardService:
                 'total_recommendations': total_high + total_medium + total_low,
             }
         }
+
+    # ========== Pricing Settings Methods ==========
+
+    def get_pricing_settings(self, additional_models: Optional[List[str]] = None) -> Dict[str, Any]:
+        """
+        Get pricing settings for all models.
+
+        Args:
+            additional_models: Optional list of additional model IDs to include
+                              (e.g., models discovered from session data)
+
+        Returns:
+            Dict with default pricing and custom overrides.
+        """
+        from ...analyzers.tokens import MODEL_PRICING, DEFAULT_PRICING
+
+        all_pricing = self._pricing_settings.get_all_pricing(additional_models=additional_models)
+        custom_pricing = self._pricing_settings.get_custom_pricing_summary()
+
+        return {
+            'all_pricing': all_pricing,
+            'custom_pricing': custom_pricing,
+            'has_custom_pricing': len(custom_pricing) > 0
+        }
+
+    def update_model_pricing(
+        self,
+        model: str,
+        input_per_mtok: float,
+        output_per_mtok: float,
+        cache_write_per_mtok: float,
+        cache_read_per_mtok: float
+    ) -> Dict[str, Any]:
+        """
+        Update pricing for a specific model.
+
+        Args:
+            model: Model identifier
+            input_per_mtok: Price per million input tokens
+            output_per_mtok: Price per million output tokens
+            cache_write_per_mtok: Price per million cache write tokens
+            cache_read_per_mtok: Price per million cache read tokens
+
+        Returns:
+            Dict with success status and updated pricing.
+        """
+        success = self._pricing_settings.set_pricing_for_model(
+            model,
+            input_per_mtok,
+            output_per_mtok,
+            cache_write_per_mtok,
+            cache_read_per_mtok
+        )
+
+        if success:
+            # Return updated pricing
+            updated_pricing = self._pricing_settings.get_pricing_for_model(model)
+            return {
+                'success': True,
+                'model': model,
+                'pricing': updated_pricing
+            }
+        else:
+            return {
+                'success': False,
+                'error': 'Failed to save pricing settings'
+            }
+
+    def reset_model_pricing(self, model: str) -> Dict[str, Any]:
+        """
+        Reset pricing for a specific model to default.
+
+        Args:
+            model: Model identifier
+
+        Returns:
+            Dict with success status and default pricing.
+        """
+        success = self._pricing_settings.reset_pricing_for_model(model)
+
+        if success:
+            from ...analyzers.tokens import MODEL_PRICING, DEFAULT_PRICING
+            default_pricing = MODEL_PRICING.get(model, DEFAULT_PRICING)
+            return {
+                'success': True,
+                'model': model,
+                'pricing': default_pricing
+            }
+        else:
+            return {
+                'success': False,
+                'error': 'Failed to reset pricing settings'
+            }
+
+    def get_all_models_from_sessions(self) -> List[str]:
+        """
+        Extract all unique model IDs from all parsed sessions.
+
+        This dynamically discovers which models have been used on this machine,
+        allowing the pricing settings page to show any custom models that aren't
+        in the default MODEL_PRICING dictionary.
+
+        Returns:
+            List of unique model IDs
+        """
+        all_models = set()
+
+        # Get model-by-project breakdown which contains all models used
+        model_by_project = self._token_analyzer.get_model_by_project_breakdown()
+
+        # Extract unique model IDs from all projects
+        for project_models in model_by_project.values():
+            all_models.update(project_models.keys())
+
+        return sorted(all_models)

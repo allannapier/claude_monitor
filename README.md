@@ -69,7 +69,7 @@ pip install .
 ### Running
 
 ```bash
-# Start the web server (default port 5000)
+# Start the web server (default port 5000, accessible from all network interfaces)
 claudesavvy
 
 # Open your browser to http://localhost:5000
@@ -82,14 +82,14 @@ That's it! The dashboard will load your Claude Code usage data automatically.
 ### Basic Commands
 
 ```bash
-# Start server on default port 5000
+# Start server on default port 5000 (accessible from all network interfaces)
 claudesavvy
 
 # Start on custom port
 claudesavvy --port 8080
 
-# Bind to all network interfaces (allow external access)
-claudesavvy --host 0.0.0.0
+# Bind to localhost only (for enhanced security)
+claudesavvy --host 127.0.0.1
 
 # Enable debug mode with auto-reload
 claudesavvy --debug

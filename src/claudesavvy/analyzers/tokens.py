@@ -1,10 +1,13 @@
 """Token usage analyzer with cost calculations."""
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TYPE_CHECKING, Dict
 
 from ..parsers.sessions import SessionParser, TokenUsage
 from ..utils.time_filter import TimeFilter
+
+if TYPE_CHECKING:
+    from ..utils.pricing import PricingSettings
 
 
 # Friendly display names for models
@@ -153,7 +156,8 @@ class TokenAnalyzer:
     def __init__(
         self,
         session_parser: SessionParser,
-        time_filter: Optional[TimeFilter] = None
+        time_filter: Optional[TimeFilter] = None,
+        pricing_settings: Optional['PricingSettings'] = None
     ):
         """
         Initialize token analyzer.
@@ -161,12 +165,28 @@ class TokenAnalyzer:
         Args:
             session_parser: Parser for session data
             time_filter: Optional time filter
+            pricing_settings: Optional pricing settings for custom model pricing
         """
         self.session_parser = session_parser
         self.time_filter = time_filter
+        self.pricing_settings = pricing_settings
 
-    @staticmethod
-    def calculate_cost(tokens: TokenUsage, model: Optional[str] = None) -> CostBreakdown:
+    def _get_pricing_for_model(self, model: Optional[str]) -> Dict[str, float]:
+        """
+        Get pricing configuration for a model.
+
+        Args:
+            model: Model identifier
+
+        Returns:
+            Pricing dictionary with pricing per token type.
+            Uses custom pricing if available, otherwise default pricing.
+        """
+        if self.pricing_settings and model:
+            return self.pricing_settings.get_pricing_for_model(model)
+        return MODEL_PRICING.get(model, DEFAULT_PRICING)
+
+    def calculate_cost(self, tokens: TokenUsage, model: Optional[str] = None) -> CostBreakdown:
         """
         Calculate costs for token usage based on model pricing.
 
@@ -177,8 +197,8 @@ class TokenAnalyzer:
         Returns:
             CostBreakdown with calculated costs
         """
-        # Get pricing for the specific model, or use default
-        pricing = MODEL_PRICING.get(model, DEFAULT_PRICING)
+        # Get pricing for the specific model (with custom override if set)
+        pricing = self._get_pricing_for_model(model)
 
         input_cost = (tokens.input_tokens / 1_000_000) * pricing['input_per_mtok']
         output_cost = (tokens.output_tokens / 1_000_000) * pricing['output_per_mtok']

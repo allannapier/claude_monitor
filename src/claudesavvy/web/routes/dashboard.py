@@ -799,6 +799,31 @@ def api_project_analyze() -> Any:
         }), 500
 
 
+@dashboard_bp.route('/settings')
+def settings() -> str:
+    """Render the settings page with pricing configuration."""
+    try:
+        service = current_app.dashboard_service
+
+        # Dynamically load models from session data
+        models_from_sessions = service.get_all_models_from_sessions()
+
+        # Get pricing settings with dynamically discovered models
+        pricing_settings = service.get_pricing_settings(additional_models=models_from_sessions)
+
+        return render_template(
+            'pages/settings.html',
+            pricing=pricing_settings
+        )
+
+    except Exception as e:
+        logger.error(f'Error loading settings page: {e}', exc_info=True)
+        return render_template(
+            'pages/settings.html',
+            pricing={'all_pricing': {}, 'custom_pricing': {}, 'has_custom_pricing': False}
+        )
+
+
 @dashboard_bp.route('/export/<format>')
 def export_data(format: str) -> Any:
     """
@@ -885,3 +910,99 @@ def export_data(format: str) -> Any:
     except Exception as e:
         logger.error(f'Error exporting data: {e}', exc_info=True)
         return 'Error exporting data. Please check the server logs for more details.', 500
+
+
+@dashboard_bp.route('/api/settings/pricing')
+def api_pricing_settings() -> Any:
+    """
+    API endpoint to get pricing settings.
+
+    Returns:
+        JSON with pricing settings for all models.
+    """
+    from flask import jsonify
+
+    try:
+        service = current_app.dashboard_service
+        pricing_data = service.get_pricing_settings()
+        return jsonify(pricing_data), 200
+
+    except Exception as e:
+        logger.error(f'Error getting pricing settings: {e}', exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@dashboard_bp.route('/api/settings/pricing/update', methods=['POST'])
+def api_update_pricing() -> Any:
+    """
+    API endpoint to update pricing for a specific model.
+
+    Expects JSON body with:
+        - model: Model identifier
+        - input_per_mtok: Price per million input tokens
+        - output_per_mtok: Price per million output tokens
+        - cache_write_per_mtok: Price per million cache write tokens
+        - cache_read_per_mtok: Price per million cache read tokens
+
+    Returns:
+        JSON with success status and updated pricing.
+    """
+    from flask import request, jsonify
+
+    try:
+        service = current_app.dashboard_service
+        data = request.get_json()
+
+        # Validate required fields
+        required_fields = ['model', 'input_per_mtok', 'output_per_mtok',
+                          'cache_write_per_mtok', 'cache_read_per_mtok']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'success': False, 'error': f'Missing field: {field}'}), 400
+
+        # Update pricing
+        result = service.update_model_pricing(
+            model=data['model'],
+            input_per_mtok=float(data['input_per_mtok']),
+            output_per_mtok=float(data['output_per_mtok']),
+            cache_write_per_mtok=float(data['cache_write_per_mtok']),
+            cache_read_per_mtok=float(data['cache_read_per_mtok'])
+        )
+
+        return jsonify(result), 200 if result['success'] else 500
+
+    except ValueError as e:
+        return jsonify({'success': False, 'error': f'Invalid value: {str(e)}'}), 400
+    except Exception as e:
+        logger.error(f'Error updating pricing: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@dashboard_bp.route('/api/settings/pricing/reset', methods=['POST'])
+def api_reset_pricing() -> Any:
+    """
+    API endpoint to reset pricing for a specific model to default.
+
+    Expects JSON body with:
+        - model: Model identifier
+
+    Returns:
+        JSON with success status and default pricing.
+    """
+    from flask import request, jsonify
+
+    try:
+        service = current_app.dashboard_service
+        data = request.get_json()
+
+        if 'model' not in data:
+            return jsonify({'success': False, 'error': 'Missing field: model'}), 400
+
+        # Reset pricing
+        result = service.reset_model_pricing(data['model'])
+
+        return jsonify(result), 200 if result['success'] else 500
+
+    except Exception as e:
+        logger.error(f'Error resetting pricing: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
