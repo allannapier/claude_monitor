@@ -107,7 +107,7 @@ class PricingSettings:
             return custom_pricing[model]
 
         # Fall back to default pricing
-        return MODEL_PRICING.get(model, DEFAULT_PRICING)
+        return DEFAULT_PRICING
 
     def set_pricing_for_model(
         self,
