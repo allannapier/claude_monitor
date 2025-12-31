@@ -59,7 +59,7 @@ pip install claudesavvy
 
 ```bash
 # Clone the repository
-git clone https://github.com/allannapier/claude_monitor.git
+git clone https://github.com/allannapier/claudesavvy.git
 cd claude_monitor
 
 # Install the package
@@ -299,8 +299,8 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/allannapier/claude_monitor/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/allannapier/claude_monitor/discussions)
+- **Issues**: [GitHub Issues](https://github.com/allannapier/claudesavvy/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/allannapier/claudesavvy/discussions)
 
 ---
 
