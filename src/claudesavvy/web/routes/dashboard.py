@@ -809,7 +809,11 @@ def api_project_analyze() -> Any:
             if start_time:
                 time_filter = TimeFilter(start_time=start_time, end_time=now)
 
-        logger.info(f'Analyzing project: {project_name}, period: {period}, time_filter: {time_filter}')
+        # Use parameterized logging to prevent log injection
+        logger.info('Analyzing project: %s, period: %s, has_time_filter: %s',
+                    project_name.replace('\n', ' ').replace('\r', ' ')[:100],
+                    period,
+                    time_filter is not None)
 
         # Get project analysis
         analysis = service.get_project_analysis(

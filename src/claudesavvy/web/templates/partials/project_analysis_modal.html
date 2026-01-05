@@ -255,15 +255,9 @@ function renderTrends(metrics) {
     const container = document.getElementById('trends-grid');
     const context = document.getElementById('trends-context');
 
-    console.log('Trends debug:', {
-        trends_available: metrics.trends_available,
-        trends: metrics.trends
-    });
-
     // Hide if trends not available
     if (!metrics.trends_available || !metrics.trends) {
         section.classList.add('hidden');
-        console.log('Trends hidden - not available');
         return;
     }
 

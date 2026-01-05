@@ -835,29 +835,20 @@ class ProjectAnalyzer:
         by activity volume. If sessions drop 20% and cost drops 20%, there's
         no efficiency improvement.
         """
-        import logging
-        logger = logging.getLogger(__name__)
-
         recommendations = []
         metrics = {}
 
         # Can't compute trends without a bounded time period
         if time_filter is None or time_filter.start_time is None:
-            logger.info('Trends: No time filter or unbounded period')
             metrics['trends_available'] = False
             return recommendations, metrics
 
         # Get the previous period filter
         prev_filter = time_filter.get_previous_period()
-        logger.info(f'Trends: Current period {time_filter.start_time} to {time_filter.end_time}')
-        logger.info(f'Trends: Previous period {prev_filter.start_time} to {prev_filter.end_time}')
 
         # Get project stats for both periods
         current_stats = self._get_project_stats_for_path(project_path, time_filter)
         prev_stats = self._get_project_stats_for_path(project_path, prev_filter)
-
-        logger.info(f'Trends: Current stats found: {current_stats is not None}')
-        logger.info(f'Trends: Previous stats found: {prev_stats is not None}')
 
         if not current_stats or not prev_stats:
             metrics['trends_available'] = False
