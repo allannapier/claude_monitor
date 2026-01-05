@@ -950,6 +950,7 @@ class DashboardService:
                 'input_tokens': stats.total_input_tokens,
                 'output_tokens': stats.total_output_tokens,
                 'total_cost': round(tool_cost, 4),
+                'cost_per_call': round(tool_cost / stats.invocation_count, 6) if stats.invocation_count > 0 else 0,
                 'avg_tokens_per_call': round(
                     stats.total_tokens / stats.invocation_count
                     if stats.invocation_count > 0 else 0,

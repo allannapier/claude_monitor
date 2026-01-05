@@ -48,6 +48,20 @@
                             </div>
                         </div>
 
+                        <!-- Trends Section (only shown when trends available) -->
+                        <div id="trends-section" class="hidden bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
+                            <h4 class="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                </svg>
+                                Efficiency Trends (vs Previous Period)
+                            </h4>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm" id="trends-grid">
+                                <!-- Populated by JS -->
+                            </div>
+                            <p class="text-xs text-gray-500 mt-3" id="trends-context"></p>
+                        </div>
+
                         <!-- Recommendations by category -->
                         <div id="recommendations-container" class="space-y-4">
                             <!-- Populated by JS -->
@@ -85,8 +99,11 @@
 </div>
 
 <script>
-// Store current analysis data
-let currentAnalysis = null;
+// Store current analysis data (use var to allow redeclaration from htmx reloads)
+var currentAnalysis = null;
+
+// Only define functions if not already defined (prevents htmx reload issues)
+if (typeof openAnalysisModal === 'undefined') {
 
 function openAnalysisModal(projectPath, projectName, period = 'all') {
     const modal = document.getElementById('analysis-modal');
@@ -148,6 +165,9 @@ function renderAnalysisResults(data) {
 
     // Render metrics
     renderMetrics(metrics);
+
+    // Render trends if available
+    renderTrends(metrics);
 
     // Render recommendations
     renderRecommendations(recommendations);
@@ -230,6 +250,111 @@ function renderMetrics(metrics) {
     `).join('');
 }
 
+function renderTrends(metrics) {
+    const section = document.getElementById('trends-section');
+    const container = document.getElementById('trends-grid');
+    const context = document.getElementById('trends-context');
+
+    // Hide if trends not available
+    if (!metrics.trends_available || !metrics.trends) {
+        section.classList.add('hidden');
+        return;
+    }
+
+    section.classList.remove('hidden');
+    const trends = metrics.trends;
+    const trendItems = [];
+
+    // Helper to create trend indicator
+    function trendIndicator(direction, changePercent, isGoodWhenDown = true, isNeutral = false) {
+        if (direction === 'flat' || Math.abs(changePercent) < 1) {
+            return '<span class="text-gray-400">-</span>';
+        }
+
+        const arrow = direction === 'up' ? '&uarr;' : '&darr;';
+        const sign = changePercent > 0 ? '+' : '';
+
+        // Neutral metrics are always gray - they're informational only
+        if (isNeutral) {
+            return `<span class="text-gray-500">${arrow} ${sign}${changePercent.toFixed(1)}%</span>`;
+        }
+
+        const isGood = isGoodWhenDown ? direction === 'down' : direction === 'up';
+        const isBad = isGoodWhenDown ? direction === 'up' : direction === 'down';
+        const color = isGood ? 'text-green-600' : (isBad ? 'text-red-600' : 'text-gray-600');
+
+        return `<span class="${color} font-medium">${arrow} ${sign}${changePercent.toFixed(1)}%</span>`;
+    }
+
+    // Cost per Session
+    if (trends.cost_per_session) {
+        const t = trends.cost_per_session;
+        trendItems.push({
+            label: 'Cost per Session',
+            value: `$${t.current.toFixed(4)}`,
+            trend: trendIndicator(t.direction, t.change_percent, true),
+            tooltip: `Previous: $${t.previous.toFixed(4)}`
+        });
+    }
+
+    // Cost per Message (more useful than tokens per session)
+    if (trends.cost_per_message) {
+        const t = trends.cost_per_message;
+        trendItems.push({
+            label: 'Cost per Message',
+            value: `$${t.current.toFixed(6)}`,
+            trend: trendIndicator(t.direction, t.change_percent, true),
+            tooltip: `Previous: $${t.previous.toFixed(6)}`
+        });
+    }
+
+    // Cache Hit Rate
+    if (trends.cache_hit_rate) {
+        const t = trends.cache_hit_rate;
+        trendItems.push({
+            label: 'Cache Hit Rate',
+            value: `${t.current.toFixed(1)}%`,
+            trend: trendIndicator(t.direction, t.change_percent, false), // higher is better
+            tooltip: `Previous: ${t.previous.toFixed(1)}%`
+        });
+    }
+
+    // Tokens per Message - context window hygiene (lower is better)
+    if (trends.tokens_per_message) {
+        const t = trends.tokens_per_message;
+        trendItems.push({
+            label: 'Tokens per Message',
+            value: t.current.toLocaleString(),
+            trend: trendIndicator(t.direction, t.change_percent, true), // lower is better
+            tooltip: `Previous: ${t.previous.toLocaleString()} - Lower = cleaner context window`
+        });
+    }
+
+    container.innerHTML = trendItems.map(item => `
+        <div title="${item.tooltip || ''}">
+            <div class="text-gray-500">${item.label}</div>
+            <div class="font-medium text-gray-900 flex items-center gap-2">
+                ${item.value}
+                ${item.trend}
+            </div>
+        </div>
+    `).join('');
+
+    // Add context about activity volume
+    if (trends.activity) {
+        const act = trends.activity;
+        const sessionChange = act.session_change_percent;
+        let contextText = `Comparing ${act.current_sessions} sessions (${act.current_messages} messages) vs ${act.previous_sessions} sessions (${act.previous_messages} messages) in previous period.`;
+
+        if (sessionChange !== undefined) {
+            const changeDir = sessionChange > 0 ? 'more' : 'fewer';
+            contextText += ` Activity is ${Math.abs(sessionChange).toFixed(0)}% ${changeDir} than before.`;
+        }
+
+        context.textContent = contextText;
+    }
+}
+
 function renderRecommendations(recommendations) {
     const container = document.getElementById('recommendations-container');
 
@@ -240,6 +365,7 @@ function renderRecommendations(recommendations) {
         config: { name: 'Configuration', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z', color: 'green' },
         cache: { name: 'Cache Efficiency', icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4', color: 'orange' },
         agent: { name: 'Agent Configuration', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', color: 'indigo' },
+        trend: { name: 'Efficiency Trends', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', color: 'cyan' },
     };
 
     const severityColors = {
@@ -305,7 +431,9 @@ function renderRecommendations(recommendations) {
     container.innerHTML = html;
 }
 
-// Close modal on escape key
+} // end if (typeof openAnalysisModal === 'undefined')
+
+// Close modal on escape key (safe to re-add listener)
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeAnalysisModal();

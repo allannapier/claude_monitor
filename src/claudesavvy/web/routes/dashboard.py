@@ -246,6 +246,8 @@ def features() -> str:
                 'usage_count': tool.get('invocation_count', 0),
                 'total_tokens': tool.get('total_tokens', 0),
                 'cost': tool.get('total_cost', 0.0),
+                'cost_per_call': tool.get('cost_per_call', 0.0),
+                'trend': None,  # No trends on initial load (all time)
             })
 
         features_data = {
@@ -256,6 +258,7 @@ def features() -> str:
             'sub_agents_used': features_summary.get('subagents', {}).get('unique_used', 0),
             'tool_usage': tool_usage,
             'categories': features_summary.get('categories', {}),
+            'has_trends': False,  # No trends on initial load (all time)
         }
 
         return render_template('pages/features.html', features=features_data)
@@ -690,6 +693,7 @@ def api_features() -> str:
         period = request.args.get('period', 'all')
 
         time_filter = None
+        prev_time_filter = None
         if period != 'all':
             now = datetime.now()
             if period == 'today':
@@ -703,20 +707,45 @@ def api_features() -> str:
 
             if start_time:
                 time_filter = TimeFilter(start_time=start_time, end_time=now)
+                prev_time_filter = time_filter.get_previous_period()
 
-        # Get tool usage data
+        # Get tool usage data for current period
         top_tools = service.get_top_tools(limit=20, time_filter=time_filter)
         features_summary = service.get_features_summary(time_filter=time_filter)
+
+        # Get previous period data for trend comparison
+        prev_tools_by_name = {}
+        if prev_time_filter and prev_time_filter.start_time:
+            prev_top_tools = service.get_top_tools(limit=50, time_filter=prev_time_filter)
+            for tool in prev_top_tools.get('tools', []):
+                prev_tools_by_name[tool.get('tool_name', '')] = tool
 
         # Build tool_usage list with proper field names for template
         tool_usage = []
         for tool in top_tools.get('tools', []):
+            tool_name = tool.get('tool_name', '')
+            cost_per_call = tool.get('cost_per_call', 0.0)
+
+            # Calculate trend vs previous period
+            trend = None
+            if tool_name in prev_tools_by_name:
+                prev_cost_per_call = prev_tools_by_name[tool_name].get('cost_per_call', 0)
+                if prev_cost_per_call > 0:
+                    change_percent = ((cost_per_call - prev_cost_per_call) / prev_cost_per_call) * 100
+                    trend = {
+                        'change_percent': round(change_percent, 1),
+                        'direction': 'up' if change_percent > 0 else 'down' if change_percent < 0 else 'flat',
+                        'prev_cost_per_call': prev_cost_per_call,
+                    }
+
             tool_usage.append({
-                'name': tool.get('tool_name', ''),
+                'name': tool_name,
                 'category': tool.get('category', 'tool'),
                 'usage_count': tool.get('invocation_count', 0),
                 'total_tokens': tool.get('total_tokens', 0),
                 'cost': tool.get('total_cost', 0.0),
+                'cost_per_call': cost_per_call,
+                'trend': trend,
             })
 
         features_data = {
@@ -727,6 +756,7 @@ def api_features() -> str:
             'sub_agents_used': features_summary.get('subagents', {}).get('unique_used', 0),
             'tool_usage': tool_usage,
             'categories': features_summary.get('categories', {}),
+            'has_trends': prev_time_filter is not None and prev_time_filter.start_time is not None,
         }
 
         return render_template('partials/features_content.html', features=features_data)

@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 
-from ..parsers.sessions import SessionParser
+from ..parsers.sessions import SessionParser, SessionStats
 from ..parsers.tools import ToolUsageParser
 from ..parsers.skills import SkillsParser
 from ..parsers.configuration_scanner import ConfigurationScanner
@@ -106,6 +106,11 @@ class ProjectAnalyzer:
         agent_recs, agent_metrics = self._check_agent_configuration(project_path)
         recommendations.extend(agent_recs)
         metrics.update(agent_metrics)
+
+        # Run trend analysis (compares current vs previous period)
+        trend_recs, trend_metrics = self._check_trends(project_path, time_filter)
+        recommendations.extend(trend_recs)
+        metrics.update(trend_metrics)
 
         return ProjectAnalysis(
             project_path=project_path,
@@ -817,3 +822,281 @@ class ProjectAnalyzer:
             ))
 
         return recommendations, metrics
+
+    def _check_trends(
+        self,
+        project_path: str,
+        time_filter: Optional[TimeFilter]
+    ) -> tuple[List[Recommendation], Dict[str, Any]]:
+        """
+        Check trends by comparing current period to previous period.
+
+        Key insight: Raw cost/token changes are meaningless without normalizing
+        by activity volume. If sessions drop 20% and cost drops 20%, there's
+        no efficiency improvement.
+        """
+        recommendations = []
+        metrics = {}
+
+        # Can't compute trends without a bounded time period
+        if time_filter is None or time_filter.start_time is None:
+            metrics['trends_available'] = False
+            return recommendations, metrics
+
+        # Get the previous period filter
+        prev_filter = time_filter.get_previous_period()
+
+        # Get project stats for both periods
+        current_stats = self._get_project_stats_for_path(project_path, time_filter)
+        prev_stats = self._get_project_stats_for_path(project_path, prev_filter)
+
+        if not current_stats or not prev_stats:
+            metrics['trends_available'] = False
+            return recommendations, metrics
+
+        # Calculate normalized metrics for both periods
+        current_normalized = self._calculate_normalized_metrics(current_stats, time_filter)
+        prev_normalized = self._calculate_normalized_metrics(prev_stats, prev_filter)
+
+        metrics['trends_available'] = True
+        metrics['trends'] = {}
+
+        # --- Cost per Session trend ---
+        if current_normalized['cost_per_session'] is not None and prev_normalized['cost_per_session'] is not None:
+            if prev_normalized['cost_per_session'] > 0:
+                cost_per_session_change = (
+                    (current_normalized['cost_per_session'] - prev_normalized['cost_per_session'])
+                    / prev_normalized['cost_per_session']
+                ) * 100
+            else:
+                cost_per_session_change = 0 if current_normalized['cost_per_session'] == 0 else 100
+
+            metrics['trends']['cost_per_session'] = {
+                'current': round(current_normalized['cost_per_session'], 4),
+                'previous': round(prev_normalized['cost_per_session'], 4),
+                'change_percent': round(cost_per_session_change, 1),
+                'direction': 'up' if cost_per_session_change > 0 else 'down' if cost_per_session_change < 0 else 'flat',
+            }
+
+            # Generate recommendation if cost per session increased significantly
+            if cost_per_session_change >= 20:
+                recommendations.append(Recommendation(
+                    category='trend',
+                    severity='medium',
+                    title='Cost per session increased',
+                    description=(
+                        f'Cost per session increased by {cost_per_session_change:.0f}% compared to the previous period '
+                        f'(${prev_normalized["cost_per_session"]:.4f} → ${current_normalized["cost_per_session"]:.4f}). '
+                        'This indicates decreased efficiency, not just more usage.'
+                    ),
+                    impact='Higher cost per unit of work',
+                    action_items=[
+                        'Review if conversations are running longer than necessary',
+                        'Check if more expensive models are being used for simple tasks',
+                        'Consider using Haiku for subtasks to reduce per-session cost',
+                    ],
+                    details={
+                        'current_cost_per_session': current_normalized['cost_per_session'],
+                        'previous_cost_per_session': prev_normalized['cost_per_session'],
+                        'change_percent': cost_per_session_change,
+                    }
+                ))
+            elif cost_per_session_change <= -20:
+                # Positive trend - add as info
+                metrics['trends']['cost_per_session']['improved'] = True
+
+        # --- Tokens per Session trend ---
+        if current_normalized['tokens_per_session'] is not None and prev_normalized['tokens_per_session'] is not None:
+            if prev_normalized['tokens_per_session'] > 0:
+                tokens_per_session_change = (
+                    (current_normalized['tokens_per_session'] - prev_normalized['tokens_per_session'])
+                    / prev_normalized['tokens_per_session']
+                ) * 100
+            else:
+                tokens_per_session_change = 0 if current_normalized['tokens_per_session'] == 0 else 100
+
+            metrics['trends']['tokens_per_session'] = {
+                'current': round(current_normalized['tokens_per_session'], 0),
+                'previous': round(prev_normalized['tokens_per_session'], 0),
+                'change_percent': round(tokens_per_session_change, 1),
+                'direction': 'up' if tokens_per_session_change > 0 else 'down' if tokens_per_session_change < 0 else 'flat',
+            }
+
+        # --- Cost per Message trend ---
+        if current_normalized['cost_per_message'] is not None and prev_normalized['cost_per_message'] is not None:
+            if prev_normalized['cost_per_message'] > 0:
+                cost_per_message_change = (
+                    (current_normalized['cost_per_message'] - prev_normalized['cost_per_message'])
+                    / prev_normalized['cost_per_message']
+                ) * 100
+            else:
+                cost_per_message_change = 0 if current_normalized['cost_per_message'] == 0 else 100
+
+            metrics['trends']['cost_per_message'] = {
+                'current': round(current_normalized['cost_per_message'], 6),
+                'previous': round(prev_normalized['cost_per_message'], 6),
+                'change_percent': round(cost_per_message_change, 1),
+                'direction': 'up' if cost_per_message_change > 0 else 'down' if cost_per_message_change < 0 else 'flat',
+            }
+
+        # --- Tokens per Message trend (context window hygiene) ---
+        if current_normalized['tokens_per_message'] is not None and prev_normalized['tokens_per_message'] is not None:
+            if prev_normalized['tokens_per_message'] > 0:
+                tokens_per_message_change = (
+                    (current_normalized['tokens_per_message'] - prev_normalized['tokens_per_message'])
+                    / prev_normalized['tokens_per_message']
+                ) * 100
+            else:
+                tokens_per_message_change = 0 if current_normalized['tokens_per_message'] == 0 else 100
+
+            metrics['trends']['tokens_per_message'] = {
+                'current': round(current_normalized['tokens_per_message'], 0),
+                'previous': round(prev_normalized['tokens_per_message'], 0),
+                'change_percent': round(tokens_per_message_change, 1),
+                'direction': 'up' if tokens_per_message_change > 0 else 'down' if tokens_per_message_change < 0 else 'flat',
+            }
+
+            # High tokens per message increase = bloated context
+            if tokens_per_message_change >= 30:
+                recommendations.append(Recommendation(
+                    category='trend',
+                    severity='low',
+                    title='Tokens per message increased significantly',
+                    description=(
+                        f'Average tokens per message increased by {tokens_per_message_change:.0f}% '
+                        f'({prev_normalized["tokens_per_message"]:.0f} → {current_normalized["tokens_per_message"]:.0f}). '
+                        'This may indicate context window bloat from accumulated conversation history.'
+                    ),
+                    impact='Higher token usage per interaction increases costs',
+                    action_items=[
+                        'Consider starting fresh conversations more frequently',
+                        'Use /compact to summarize long conversations',
+                        'Avoid including unnecessary context in prompts',
+                    ],
+                    details={
+                        'current_tokens_per_message': current_normalized['tokens_per_message'],
+                        'previous_tokens_per_message': prev_normalized['tokens_per_message'],
+                        'change_percent': tokens_per_message_change,
+                    }
+                ))
+
+        # --- Cache Hit Rate trend ---
+        if current_normalized['cache_hit_rate'] is not None and prev_normalized['cache_hit_rate'] is not None:
+            cache_change = current_normalized['cache_hit_rate'] - prev_normalized['cache_hit_rate']
+
+            metrics['trends']['cache_hit_rate'] = {
+                'current': round(current_normalized['cache_hit_rate'], 1),
+                'previous': round(prev_normalized['cache_hit_rate'], 1),
+                'change_percent': round(cache_change, 1),  # Already a percentage, show absolute change
+                'direction': 'up' if cache_change > 0 else 'down' if cache_change < 0 else 'flat',
+            }
+
+            # Cache rate dropping is bad
+            if cache_change <= -10:
+                recommendations.append(Recommendation(
+                    category='trend',
+                    severity='low',
+                    title='Cache hit rate decreased',
+                    description=(
+                        f'Cache hit rate dropped by {abs(cache_change):.1f} percentage points '
+                        f'({prev_normalized["cache_hit_rate"]:.1f}% → {current_normalized["cache_hit_rate"]:.1f}%). '
+                        'This means less reuse of cached prompts.'
+                    ),
+                    impact='Higher costs due to fewer cache hits',
+                    action_items=[
+                        'Check if CLAUDE.md was modified frequently',
+                        'Stable system prompts improve cache efficiency',
+                    ],
+                    details={
+                        'current_cache_rate': current_normalized['cache_hit_rate'],
+                        'previous_cache_rate': prev_normalized['cache_hit_rate'],
+                    }
+                ))
+
+        # --- Activity Volume (for context) ---
+        metrics['trends']['activity'] = {
+            'current_sessions': current_normalized['session_count'],
+            'previous_sessions': prev_normalized['session_count'],
+            'current_messages': current_normalized['message_count'],
+            'previous_messages': prev_normalized['message_count'],
+        }
+
+        if prev_normalized['session_count'] > 0:
+            session_change = (
+                (current_normalized['session_count'] - prev_normalized['session_count'])
+                / prev_normalized['session_count']
+            ) * 100
+            metrics['trends']['activity']['session_change_percent'] = round(session_change, 1)
+
+        return recommendations, metrics
+
+    def _get_project_stats_for_path(
+        self,
+        project_path: str,
+        time_filter: Optional[TimeFilter]
+    ):
+        """Get SessionStats for a specific project path."""
+        project_stats = self.session_parser.get_project_stats(time_filter=time_filter)
+
+        # Find matching project
+        for proj_key, stats in project_stats.items():
+            if project_path.lower() in proj_key.lower() or proj_key.lower() in project_path.lower():
+                return stats
+
+        return None
+
+    def _calculate_normalized_metrics(self, stats: SessionStats, time_filter: Optional[TimeFilter]) -> Dict[str, Any]:
+        """
+        Calculate normalized metrics from SessionStats.
+
+        These metrics are normalized by activity volume, making them
+        comparable across different time periods regardless of usage volume.
+        """
+        from ..analyzers.tokens import TokenAnalyzer
+
+        result = {
+            'session_count': stats.session_count,
+            'message_count': stats.message_count,
+            'cost_per_session': None,
+            'cost_per_message': None,
+            'tokens_per_session': None,
+            'tokens_per_message': None,
+            'cache_hit_rate': None,
+        }
+
+        # Calculate total cost
+        total_cost = 0.0
+        for model_id, tokens in stats.model_usage.items():
+            token_analyzer = TokenAnalyzer(self.session_parser, time_filter=time_filter)
+            cost = token_analyzer.calculate_cost(tokens, model_id)
+            total_cost += cost.total_cost
+
+        # Total tokens
+        total_tokens = (
+            stats.total_tokens.input_tokens +
+            stats.total_tokens.output_tokens +
+            stats.total_tokens.cache_creation_input_tokens +
+            stats.total_tokens.cache_read_input_tokens
+        )
+
+        # Normalized metrics
+        if stats.session_count > 0:
+            result['cost_per_session'] = total_cost / stats.session_count
+            result['tokens_per_session'] = total_tokens / stats.session_count
+
+        if stats.message_count > 0:
+            result['cost_per_message'] = total_cost / stats.message_count
+            result['tokens_per_message'] = total_tokens / stats.message_count
+
+        # Cache hit rate
+        total_cacheable = (
+            stats.total_tokens.cache_read_input_tokens +
+            stats.total_tokens.cache_creation_input_tokens +
+            stats.total_tokens.input_tokens
+        )
+        if total_cacheable > 0:
+            result['cache_hit_rate'] = (
+                stats.total_tokens.cache_read_input_tokens / total_cacheable
+            ) * 100
+
+        return result

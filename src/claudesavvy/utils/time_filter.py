@@ -120,6 +120,30 @@ class TimeFilter:
         dt = datetime.fromisoformat(iso_str.replace('Z', '+00:00'))
         return self.matches_datetime(dt)
 
+    def get_previous_period(self) -> "TimeFilter":
+        """
+        Get a TimeFilter for the equivalent previous period.
+
+        For example, if this filter covers "last 7 days", the previous period
+        would cover the 7 days before that.
+
+        Returns:
+            TimeFilter for the previous period
+        """
+        if self.start_time is None:
+            # "All time" doesn't have a meaningful previous period
+            # Return an empty filter (will match nothing)
+            return TimeFilter(start_time=None, end_time=None)
+
+        # Calculate the duration of the current period
+        duration = self.end_time - self.start_time
+
+        # Previous period ends where current period starts
+        prev_end = self.start_time
+        prev_start = prev_end - duration
+
+        return TimeFilter(start_time=prev_start, end_time=prev_end)
+
     def get_description(self) -> str:
         """Get a human-readable description of the time range."""
         if self.start_time is None:
