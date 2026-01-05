@@ -59,6 +59,10 @@
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                     <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Calls</th>
                     <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tokens</th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cost/Call</th>
+                    {% if features.has_trends %}
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Trend</th>
+                    {% endif %}
                     <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Est. Cost</th>
                 </tr>
             </thead>
@@ -80,6 +84,26 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ tool.category|default('Unknown') }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{{ tool.usage_count }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{{ tool.total_tokens|default(0)|int }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600">${{ "%.6f"|format(tool.cost_per_call|default(0.0)|float) }}</td>
+                    {% if features.has_trends %}
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                        {% if tool.trend %}
+                            {% if tool.trend.direction == 'down' %}
+                                <span class="text-green-600 font-medium" title="Previous: ${{ '%.6f'|format(tool.trend.prev_cost_per_call) }}">
+                                    &darr; {{ tool.trend.change_percent }}%
+                                </span>
+                            {% elif tool.trend.direction == 'up' %}
+                                <span class="text-red-600 font-medium" title="Previous: ${{ '%.6f'|format(tool.trend.prev_cost_per_call) }}">
+                                    &uarr; +{{ tool.trend.change_percent }}%
+                                </span>
+                            {% else %}
+                                <span class="text-gray-400">-</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-gray-400" title="No data from previous period">-</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-[#0770E3]">${{ tool.cost|default(0.0)|float|round(2) }}</td>
                 </tr>
                 {% endfor %}
