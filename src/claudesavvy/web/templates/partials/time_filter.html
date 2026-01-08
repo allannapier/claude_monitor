@@ -1,4 +1,8 @@
-<!-- Time Filter Component -->
+<!-- Time Filter Component
+     Expected context variables (optional):
+       - current_url: API endpoint URL (default: '/api/dashboard')
+       - target_id: HTMX target element ID (default: 'dashboard-content')
+-->
 {% set api_url = current_url|default('/api/dashboard') %}
 {% set content_target = target_id|default('dashboard-content') %}
 <div class="flex gap-1 sm:gap-2 flex-nowrap" role="group">
