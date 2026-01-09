@@ -1828,3 +1828,482 @@ class DashboardService:
             "datasets": datasets,
             "total_points": sum(len(d["data"]) for d in datasets),
         }
+
+    # ========== Tool Invocation Methods ==========
+
+    def get_tool_invocations(
+        self,
+        tool_name: str,
+        time_filter: Optional[TimeFilter] = None,
+        limit: int = 100,
+    ) -> Dict[str, Any]:
+        """
+        Get individual invocations for a specific tool grouped by session.
+
+        Args:
+            tool_name: The name of the tool to get invocations for
+            time_filter: Optional time filter to apply
+            limit: Maximum number of invocations to return
+
+        Returns:
+            Dict with tool details and invocations grouped by session
+        """
+        from ...analyzers.tokens import DEFAULT_PRICING
+
+        tool_parser = self._features_analyzer.tool_parser
+
+        # Collect all invocations for this tool
+        invocations = []
+        for inv in tool_parser.parse_all(time_filter=time_filter):
+            if inv.tool_name == tool_name:
+                invocations.append(inv)
+
+        # Sort by timestamp descending
+        invocations.sort(key=lambda x: x.timestamp, reverse=True)
+        invocations = invocations[:limit]
+
+        # Group by session
+        sessions_map: Dict[str, Dict[str, Any]] = {}
+        for inv in invocations:
+            session_id = inv.session_id
+            if session_id not in sessions_map:
+                sessions_map[session_id] = {
+                    "session_id": session_id,
+                    "project": inv.project,
+                    "project_name": Path(inv.project).name
+                    if inv.project
+                    else "Unknown",
+                    "invocations": [],
+                    "total_tokens": 0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "cache_read_tokens": 0,
+                    "cache_write_tokens": 0,
+                    "invocation_count": 0,
+                    "first_timestamp": inv.timestamp,
+                    "last_timestamp": inv.timestamp,
+                }
+
+            session = sessions_map[session_id]
+            session["invocations"].append(
+                {
+                    "timestamp": inv.timestamp,
+                    "date": inv.timestamp[:10] if inv.timestamp else "",
+                    "time": inv.timestamp[11:19] if len(inv.timestamp) > 19 else "",
+                    "input_params": inv.input_params,
+                    "input_tokens": inv.input_tokens,
+                    "output_tokens": inv.output_tokens,
+                    "cache_read_tokens": inv.cache_read_tokens,
+                    "cache_write_tokens": inv.cache_write_tokens,
+                    "total_tokens": inv.total_tokens,
+                }
+            )
+            session["total_tokens"] += inv.total_tokens
+            session["input_tokens"] += inv.input_tokens
+            session["output_tokens"] += inv.output_tokens
+            session["cache_read_tokens"] += inv.cache_read_tokens
+            session["cache_write_tokens"] += inv.cache_write_tokens
+            session["invocation_count"] += 1
+
+            # Track first/last timestamps
+            if inv.timestamp < session["first_timestamp"]:
+                session["first_timestamp"] = inv.timestamp
+            if inv.timestamp > session["last_timestamp"]:
+                session["last_timestamp"] = inv.timestamp
+
+        # Calculate costs for each session
+        pricing = DEFAULT_PRICING
+        for session in sessions_map.values():
+            input_cost = (session["input_tokens"] / 1_000_000) * pricing[
+                "input_per_mtok"
+            ]
+            output_cost = (session["output_tokens"] / 1_000_000) * pricing[
+                "output_per_mtok"
+            ]
+            cache_read_cost = (session["cache_read_tokens"] / 1_000_000) * pricing[
+                "cache_read_per_mtok"
+            ]
+            cache_write_cost = (session["cache_write_tokens"] / 1_000_000) * pricing[
+                "cache_write_per_mtok"
+            ]
+            session["cost"] = round(
+                input_cost + output_cost + cache_read_cost + cache_write_cost, 4
+            )
+
+        # Convert to list and sort by last_timestamp
+        sessions = list(sessions_map.values())
+        sessions.sort(key=lambda x: x["last_timestamp"], reverse=True)
+
+        # Calculate totals
+        total_tokens = sum(s["total_tokens"] for s in sessions)
+        total_invocations = sum(s["invocation_count"] for s in sessions)
+        total_cost = sum(s["cost"] for s in sessions)
+        total_input = sum(s["input_tokens"] for s in sessions)
+        total_output = sum(s["output_tokens"] for s in sessions)
+        total_cache_read = sum(s["cache_read_tokens"] for s in sessions)
+        total_cache_write = sum(s["cache_write_tokens"] for s in sessions)
+
+        return {
+            "tool_name": tool_name,
+            "sessions": sessions,
+            "session_count": len(sessions),
+            "total_invocations": total_invocations,
+            "total_tokens": total_tokens,
+            "total_cost": round(total_cost, 4),
+            "input_tokens": total_input,
+            "output_tokens": total_output,
+            "cache_read_tokens": total_cache_read,
+            "cache_write_tokens": total_cache_write,
+            "avg_tokens_per_call": round(total_tokens / total_invocations, 1)
+            if total_invocations > 0
+            else 0,
+        }
+
+    def get_tool_chart_data(
+        self,
+        tool_name: str,
+        time_filter: Optional[TimeFilter] = None,
+        limit: int = 100,
+    ) -> Dict[str, Any]:
+        """
+        Get tool invocation data formatted for Chart.js scatter/bubble chart.
+
+        Args:
+            tool_name: The name of the tool
+            time_filter: Optional time filter to apply
+            limit: Maximum number of invocations to return
+
+        Returns:
+            Dict with chart-ready data
+        """
+        from ...analyzers.tokens import DEFAULT_PRICING
+
+        tool_parser = self._features_analyzer.tool_parser
+        pricing = DEFAULT_PRICING
+
+        # Collect all invocations for this tool
+        invocations = []
+        for inv in tool_parser.parse_all(time_filter=time_filter):
+            if inv.tool_name == tool_name:
+                invocations.append(inv)
+
+        # Sort by timestamp descending and limit
+        invocations.sort(key=lambda x: x.timestamp, reverse=True)
+        invocations = invocations[:limit]
+
+        # Build chart data points
+        data_points = []
+        for idx, inv in enumerate(invocations):
+            # Calculate cost for this invocation
+            input_cost = (inv.input_tokens / 1_000_000) * pricing["input_per_mtok"]
+            output_cost = (inv.output_tokens / 1_000_000) * pricing["output_per_mtok"]
+            cache_read_cost = (inv.cache_read_tokens / 1_000_000) * pricing[
+                "cache_read_per_mtok"
+            ]
+            cache_write_cost = (inv.cache_write_tokens / 1_000_000) * pricing[
+                "cache_write_per_mtok"
+            ]
+            cost = input_cost + output_cost + cache_read_cost + cache_write_cost
+
+            # Generate a unique ID for this invocation
+            invocation_id = f"{inv.session_id}_{inv.timestamp}_{idx}"
+
+            # Get a preview of what the tool did
+            params_preview = self._get_tool_params_preview(
+                inv.tool_name, inv.input_params
+            )
+
+            data_points.append(
+                {
+                    "x": inv.timestamp,
+                    "y": inv.total_tokens,
+                    "r": min(15, max(4, inv.total_tokens / 1000)),  # Scale bubble size
+                    "invocation_id": invocation_id,
+                    "session_id": inv.session_id,
+                    "project": Path(inv.project).name if inv.project else "Unknown",
+                    "cost": round(cost, 6),
+                    "input_tokens": inv.input_tokens,
+                    "output_tokens": inv.output_tokens,
+                    "cache_read_tokens": inv.cache_read_tokens,
+                    "cache_write_tokens": inv.cache_write_tokens,
+                    "params_preview": params_preview,
+                }
+            )
+
+        return {
+            "tool_name": tool_name,
+            "datasets": [
+                {
+                    "label": tool_name,
+                    "data": data_points,
+                    "backgroundColor": "#0770E380",  # Brand blue with alpha
+                    "borderColor": "#0770E3",
+                }
+            ],
+            "total_points": len(data_points),
+        }
+
+    def _get_tool_params_preview(self, tool_name: str, params: dict) -> str:
+        """Get a human-readable preview of tool parameters."""
+        if not params:
+            return ""
+
+        # Tool-specific previews
+        if tool_name == "Read":
+            file_path = params.get("filePath", params.get("file_path", ""))
+            if file_path:
+                return Path(file_path).name
+        elif tool_name == "Write":
+            file_path = params.get("filePath", params.get("file_path", ""))
+            if file_path:
+                return f"Write: {Path(file_path).name}"
+        elif tool_name == "Edit":
+            file_path = params.get("filePath", params.get("file_path", ""))
+            if file_path:
+                return f"Edit: {Path(file_path).name}"
+        elif tool_name == "Bash":
+            command = params.get("command", "")
+            if command:
+                return command[:50] + ("..." if len(command) > 50 else "")
+        elif tool_name == "Glob":
+            pattern = params.get("pattern", "")
+            return pattern[:40] if pattern else ""
+        elif tool_name == "Grep":
+            pattern = params.get("pattern", "")
+            return f"/{pattern[:30]}/" if pattern else ""
+        elif tool_name == "Task":
+            desc = params.get("description", "")
+            return desc[:40] + ("..." if len(desc) > 40 else "")
+        elif tool_name == "WebFetch":
+            url = params.get("url", "")
+            if url:
+                # Extract domain from URL
+                try:
+                    from urllib.parse import urlparse
+
+                    parsed = urlparse(url)
+                    return parsed.netloc[:30]
+                except Exception:
+                    return url[:30]
+
+        # Generic fallback - show first key-value
+        for key, value in params.items():
+            if isinstance(value, str) and value:
+                return f"{key}: {value[:30]}..."
+            break
+
+        return ""
+
+    def get_tool_invocation_detail(
+        self,
+        tool_name: str,
+        invocation_id: str,
+        time_filter: Optional[TimeFilter] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get detailed information about a specific tool invocation.
+
+        Args:
+            tool_name: The name of the tool
+            invocation_id: The invocation ID (session_id_timestamp_idx format)
+            time_filter: Optional time filter
+
+        Returns:
+            Dict with invocation details or None if not found
+        """
+        from ...analyzers.tokens import DEFAULT_PRICING
+
+        tool_parser = self._features_analyzer.tool_parser
+        pricing = DEFAULT_PRICING
+
+        # Parse invocation_id to extract session_id and timestamp
+        parts = invocation_id.rsplit("_", 2)
+        if len(parts) < 2:
+            return None
+
+        target_session = parts[0]
+        target_timestamp = parts[1] if len(parts) >= 2 else ""
+
+        # Find the matching invocation
+        for inv in tool_parser.parse_all(time_filter=time_filter):
+            if inv.tool_name != tool_name:
+                continue
+
+            if inv.session_id == target_session and inv.timestamp == target_timestamp:
+                # Calculate cost
+                input_cost = (inv.input_tokens / 1_000_000) * pricing["input_per_mtok"]
+                output_cost = (inv.output_tokens / 1_000_000) * pricing[
+                    "output_per_mtok"
+                ]
+                cache_read_cost = (inv.cache_read_tokens / 1_000_000) * pricing[
+                    "cache_read_per_mtok"
+                ]
+                cache_write_cost = (inv.cache_write_tokens / 1_000_000) * pricing[
+                    "cache_write_per_mtok"
+                ]
+                cost = input_cost + output_cost + cache_read_cost + cache_write_cost
+
+                return {
+                    "tool_name": inv.tool_name,
+                    "timestamp": inv.timestamp,
+                    "date": inv.timestamp[:10] if inv.timestamp else "",
+                    "time": inv.timestamp[11:19] if len(inv.timestamp) > 19 else "",
+                    "session_id": inv.session_id,
+                    "project": inv.project,
+                    "project_name": Path(inv.project).name
+                    if inv.project
+                    else "Unknown",
+                    "input_params": inv.input_params,
+                    "input_tokens": inv.input_tokens,
+                    "output_tokens": inv.output_tokens,
+                    "cache_read_tokens": inv.cache_read_tokens,
+                    "cache_write_tokens": inv.cache_write_tokens,
+                    "total_tokens": inv.total_tokens,
+                    "cost": round(cost, 6),
+                    "params_preview": self._get_tool_params_preview(
+                        inv.tool_name, inv.input_params
+                    ),
+                }
+
+        return None
+
+    def get_unified_timeline_data(
+        self,
+        time_filter: Optional[TimeFilter] = None,
+        session_id: Optional[str] = None,
+        limit: int = 500,
+    ) -> Dict[str, Any]:
+        """
+        Get all tool invocations across all tools for a unified timeline view.
+
+        Args:
+            time_filter: Optional time filter to apply
+            session_id: Optional session ID to filter to a specific conversation
+            limit: Maximum number of invocations to return
+
+        Returns:
+            Dict with timeline data including chart data and session list
+        """
+        from ...analyzers.tokens import DEFAULT_PRICING
+
+        tool_parser = self._features_analyzer.tool_parser
+        pricing = DEFAULT_PRICING
+
+        # Collect all invocations across all tools
+        invocations = []
+        sessions_set = set()
+
+        for inv in tool_parser.parse_all(time_filter=time_filter):
+            # Filter by session if specified
+            if session_id and inv.session_id != session_id:
+                continue
+
+            invocations.append(inv)
+            sessions_set.add(
+                (
+                    inv.session_id,
+                    Path(inv.project).name if inv.project else "Unknown",
+                )
+            )
+
+        # Sort by timestamp ascending for timeline view
+        invocations.sort(key=lambda x: x.timestamp)
+        invocations = invocations[-limit:]  # Keep most recent
+
+        # Define colors for different tools
+        tool_colors = {
+            "Read": {"bg": "#3B82F680", "border": "#3B82F6"},  # Blue
+            "Write": {"bg": "#10B98180", "border": "#10B981"},  # Green
+            "Edit": {"bg": "#F59E0B80", "border": "#F59E0B"},  # Amber
+            "Bash": {"bg": "#6366F180", "border": "#6366F1"},  # Indigo
+            "Glob": {"bg": "#8B5CF680", "border": "#8B5CF6"},  # Violet
+            "Grep": {"bg": "#EC489980", "border": "#EC4899"},  # Pink
+            "Task": {"bg": "#EF444480", "border": "#EF4444"},  # Red
+            "WebFetch": {"bg": "#06B6D480", "border": "#06B6D4"},  # Cyan
+            "TodoWrite": {"bg": "#84CC1680", "border": "#84CC16"},  # Lime
+            "TodoRead": {"bg": "#22C55E80", "border": "#22C55E"},  # Green
+        }
+        default_color = {"bg": "#6B728080", "border": "#6B7280"}  # Gray
+
+        # Group invocations by tool for datasets
+        tools_data: Dict[str, list] = {}
+        all_points = []
+
+        for idx, inv in enumerate(invocations):
+            tool_name = inv.tool_name
+
+            if tool_name not in tools_data:
+                tools_data[tool_name] = []
+
+            # Calculate cost
+            input_cost = (inv.input_tokens / 1_000_000) * pricing["input_per_mtok"]
+            output_cost = (inv.output_tokens / 1_000_000) * pricing["output_per_mtok"]
+            cache_read_cost = (inv.cache_read_tokens / 1_000_000) * pricing[
+                "cache_read_per_mtok"
+            ]
+            cache_write_cost = (inv.cache_write_tokens / 1_000_000) * pricing[
+                "cache_write_per_mtok"
+            ]
+            cost = input_cost + output_cost + cache_read_cost + cache_write_cost
+
+            # Generate invocation ID
+            invocation_id = f"{inv.session_id}_{inv.timestamp}_{idx}"
+
+            # Get preview
+            params_preview = self._get_tool_params_preview(
+                inv.tool_name, inv.input_params
+            )
+
+            point = {
+                "x": inv.timestamp,
+                "y": inv.total_tokens,
+                "r": min(15, max(4, inv.total_tokens / 1000)),
+                "invocation_id": invocation_id,
+                "tool_name": tool_name,
+                "session_id": inv.session_id,
+                "project": Path(inv.project).name if inv.project else "Unknown",
+                "cost": round(cost, 6),
+                "input_tokens": inv.input_tokens,
+                "output_tokens": inv.output_tokens,
+                "cache_read_tokens": inv.cache_read_tokens,
+                "cache_write_tokens": inv.cache_write_tokens,
+                "params_preview": params_preview,
+            }
+
+            tools_data[tool_name].append(point)
+            all_points.append(point)
+
+        # Build datasets for Chart.js
+        datasets = []
+        for tool_name, points in sorted(tools_data.items()):
+            colors = tool_colors.get(tool_name, default_color)
+            datasets.append(
+                {
+                    "label": tool_name,
+                    "data": points,
+                    "backgroundColor": colors["bg"],
+                    "borderColor": colors["border"],
+                }
+            )
+
+        # Build sessions list for filter dropdown
+        sessions_list = [
+            {"session_id": sid, "project_name": proj}
+            for sid, proj in sorted(sessions_set, key=lambda x: x[1])
+        ]
+
+        # Calculate totals
+        total_tokens = sum(p["y"] for p in all_points)
+        total_cost = sum(p["cost"] for p in all_points)
+        tool_counts = {tool: len(points) for tool, points in tools_data.items()}
+
+        return {
+            "datasets": datasets,
+            "sessions": sessions_list,
+            "total_invocations": len(all_points),
+            "total_tokens": total_tokens,
+            "total_cost": round(total_cost, 4),
+            "tool_counts": tool_counts,
+            "selected_session": session_id,
+            "invocations": all_points,  # For table view
+        }
