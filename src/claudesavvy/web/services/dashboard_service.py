@@ -200,6 +200,66 @@ class DashboardService:
             return getattr(self, f'_{analyzer_name}')
         return getattr(self._create_time_filtered_service(time_filter), f'_{analyzer_name}')
 
+    def _build_project_dict(
+        self, project_path: str, project_data: dict, total_tokens: int, cost: float
+    ) -> dict:
+        """
+        Build standardized project data dictionary.
+
+        Args:
+            project_path: Path to the project
+            project_data: Project data from analyzer
+            total_tokens: Total tokens used
+            cost: Total cost
+
+        Returns:
+            Standardized dict with all project fields
+        """
+        return {
+            "path": project_path,
+            "name": project_data["name"],
+            "full_path": project_data["full_path"],
+            "command_count": project_data["commands"],
+            "session_count": project_data["sessions"],
+            "message_count": project_data["messages"],
+            "total_tokens": total_tokens,
+            "total_cost": cost,
+            "commands": project_data["commands"],  # backward compatibility
+            "sessions": project_data["sessions"],
+            "messages": project_data["messages"],
+        }
+
+    def _calculate_total_tokens(self, tokens) -> int:
+        """
+        Calculate total tokens from a token object.
+
+        Args:
+            tokens: Token object with input_tokens, output_tokens, cache_creation_input_tokens,
+                   and cache_read_input_tokens attributes
+
+        Returns:
+            Sum of all token types
+        """
+        return (
+            tokens.input_tokens
+            + tokens.output_tokens
+            + tokens.cache_creation_input_tokens
+            + tokens.cache_read_input_tokens
+        )
+
+    def _extract_mcp_server_name(self, tool_name: str) -> Optional[str]:
+        """
+        Extract MCP server name from tool name.
+
+        Args:
+            tool_name: Tool name in format "mcp__server_name__function_name"
+
+        Returns:
+            Server name if valid format, None otherwise
+        """
+        parts = tool_name.split("__")
+        return parts[1] if len(parts) >= 2 else None
+
     # ========== Public Methods for Usage Data ==========
 
     def get_usage_summary(
@@ -276,12 +336,7 @@ class DashboardService:
             cost = 0.0
 
             if token_summary:
-                total_tokens = (
-                    token_summary.total_tokens.input_tokens
-                    + token_summary.total_tokens.output_tokens
-                    + token_summary.total_tokens.cache_creation_input_tokens
-                    + token_summary.total_tokens.cache_read_input_tokens
-                )
+                total_tokens = self._calculate_total_tokens(token_summary.total_tokens)
                 cost = token_summary.total_cost
                 total_cost += cost
 
@@ -291,21 +346,7 @@ class DashboardService:
                 most_active_project = project_data["name"]
 
             projects_data.append(
-                {
-                    "path": project_path,
-                    "name": project_data["name"],
-                    "full_path": project_data["full_path"],
-                    # Field names expected by template
-                    "command_count": project_data["commands"],
-                    "session_count": project_data["sessions"],
-                    "message_count": project_data["messages"],
-                    "total_tokens": total_tokens,
-                    "total_cost": cost,
-                    # Keep original names for backward compatibility
-                    "commands": project_data["commands"],
-                    "sessions": project_data["sessions"],
-                    "messages": project_data["messages"],
-                }
+                self._build_project_dict(project_path, project_data, total_tokens, cost)
             )
 
         # Sort by command count (descending)
@@ -359,12 +400,7 @@ class DashboardService:
 
             if model_id in project_models:
                 tokens, cost = project_models[model_id]
-                total_tokens = (
-                    tokens.input_tokens
-                    + tokens.output_tokens
-                    + tokens.cache_creation_input_tokens
-                    + tokens.cache_read_input_tokens
-                )
+                total_tokens = self._calculate_total_tokens(tokens)
                 total_cost += cost
 
                 # Track most active by cost for model filter
@@ -373,19 +409,7 @@ class DashboardService:
                     most_active_project = project_data["name"]
 
                 projects_data.append(
-                    {
-                        "path": project_path,
-                        "name": project_data["name"],
-                        "full_path": project_data["full_path"],
-                        "command_count": project_data["commands"],
-                        "session_count": project_data["sessions"],
-                        "message_count": project_data["messages"],
-                        "total_tokens": total_tokens,
-                        "total_cost": cost,
-                        "commands": project_data["commands"],
-                        "sessions": project_data["sessions"],
-                        "messages": project_data["messages"],
-                    }
+                    self._build_project_dict(project_path, project_data, total_tokens, cost)
                 )
 
         # Sort by cost (descending) for model filter
@@ -458,12 +482,7 @@ class DashboardService:
         total_cost = sum(cost for _, cost in breakdown.values())
 
         for model_id, (tokens, cost) in breakdown.items():
-            total_tokens = (
-                tokens.input_tokens
-                + tokens.output_tokens
-                + tokens.cache_creation_input_tokens
-                + tokens.cache_read_input_tokens
-            )
+            total_tokens = self._calculate_total_tokens(tokens)
             models_data.append(
                 {
                     "model_id": model_id,
@@ -536,12 +555,7 @@ class DashboardService:
         for date_str in sorted(daily_stats.keys()):
             stats = daily_stats[date_str]
             # Calculate total tokens for this day
-            total = (
-                stats.total_tokens.input_tokens
-                + stats.total_tokens.output_tokens
-                + stats.total_tokens.cache_creation_input_tokens
-                + stats.total_tokens.cache_read_input_tokens
-            )
+            total = self._calculate_total_tokens(stats.total_tokens)
             data.append(total)
 
             # Create human-readable label based on how many days we're showing
@@ -1115,10 +1129,8 @@ class DashboardService:
         servers = {}
         for tool_name, stats in mcp_tools.items():
             # Extract server name from tool name: mcp__server_name__function_name
-            parts = tool_name.split("__")
-            if len(parts) >= 2:
-                server_name = parts[1]
-
+            server_name = self._extract_mcp_server_name(tool_name)
+            if server_name:
                 if server_name not in servers:
                     servers[server_name] = {
                         "server_name": server_name,

@@ -66,6 +66,25 @@ class ProjectAnalyzer:
         self.skills_parser = skills_parser
         self.config_scanner = config_scanner
 
+    def _find_project_stats(
+        self, project_path: str, project_stats: Dict[str, Any]
+    ) -> Optional[SessionStats]:
+        """
+        Find project stats by fuzzy path matching.
+
+        Args:
+            project_path: Project path to match
+            project_stats: Dict of project stats keyed by project path
+
+        Returns:
+            SessionStats if found, None otherwise
+        """
+        project_lower = project_path.lower()
+        for key, stats in project_stats.items():
+            if project_lower in key.lower() or key.lower() in project_lower:
+                return stats
+        return None
+
     def analyze_project(
         self,
         project_path: str,
@@ -438,12 +457,7 @@ class ProjectAnalyzer:
         project_stats = self.session_parser.get_project_stats(time_filter=time_filter)
 
         # Find matching project (need to match by path pattern)
-        matching_stats = None
-        for proj_key, stats in project_stats.items():
-            # Simple matching - check if project name is contained in the key
-            if project_path.lower() in proj_key.lower() or proj_key.lower() in project_path.lower():
-                matching_stats = stats
-                break
+        matching_stats = self._find_project_stats(project_path, project_stats)
 
         if not matching_stats:
             # No matching stats found
@@ -682,11 +696,7 @@ class ProjectAnalyzer:
         project_stats = self.session_parser.get_project_stats(time_filter=time_filter)
 
         # Find matching project
-        matching_stats = None
-        for proj_key, stats in project_stats.items():
-            if project_path.lower() in proj_key.lower() or proj_key.lower() in project_path.lower():
-                matching_stats = stats
-                break
+        matching_stats = self._find_project_stats(project_path, project_stats)
 
         if not matching_stats:
             return recommendations, metrics
@@ -1037,13 +1047,7 @@ class ProjectAnalyzer:
     ):
         """Get SessionStats for a specific project path."""
         project_stats = self.session_parser.get_project_stats(time_filter=time_filter)
-
-        # Find matching project
-        for proj_key, stats in project_stats.items():
-            if project_path.lower() in proj_key.lower() or proj_key.lower() in project_path.lower():
-                return stats
-
-        return None
+        return self._find_project_stats(project_path, project_stats)
 
     def _calculate_normalized_metrics(self, stats: SessionStats, time_filter: Optional[TimeFilter]) -> Dict[str, Any]:
         """
