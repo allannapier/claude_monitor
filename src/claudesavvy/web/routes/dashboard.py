@@ -88,13 +88,13 @@ def index() -> str:
             time_filter=time_filter
         )
         token_trend: Dict[str, Any] = service.get_daily_token_trend(
-            days=7, time_filter=time_filter
+            time_filter=time_filter
         )
         cost_trend: Dict[str, Any] = service.get_daily_cost_trend(
-            days=7, time_filter=time_filter
+            time_filter=time_filter
         )
         project_cost_trend: Dict[str, Any] = service.get_project_cost_trend(
-            days=7, max_projects=8, time_filter=time_filter
+            max_projects=8, time_filter=time_filter
         )
 
         logger.debug("Dashboard data fetched successfully")
@@ -552,16 +552,15 @@ def api_dashboard() -> str:
             time_filter=time_filter
         )
 
-        # For "All Time", show last 14 days on chart for better context
-        chart_days = 14 if period == "all" else 7
+        # For "All Time", the time_filter determines the date range for charts
         token_trend: Dict[str, Any] = service.get_daily_token_trend(
-            days=chart_days, time_filter=time_filter
+            time_filter=time_filter
         )
         cost_trend: Dict[str, Any] = service.get_daily_cost_trend(
-            days=chart_days, time_filter=time_filter
+            time_filter=time_filter
         )
         project_cost_trend: Dict[str, Any] = service.get_project_cost_trend(
-            days=chart_days, time_filter=time_filter, max_projects=8
+            time_filter=time_filter, max_projects=8
         )
 
         # Render partial template
