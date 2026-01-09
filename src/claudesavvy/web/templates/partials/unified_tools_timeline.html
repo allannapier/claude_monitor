@@ -332,7 +332,7 @@
                                 hx-target="#unified-invocation-detail"
                                 hx-swap="innerHTML">
                                 <td class="px-3 py-2 whitespace-nowrap text-gray-500">
-                                    {{ inv.x[11:19] if inv.x|length > 19 else inv.x }}
+                                    {{ inv.x.split('T')[1][:8] if inv.x and 'T' in inv.x else inv.x }}
                                 </td>
                                 <td class="px-3 py-2 whitespace-nowrap">
                                     <span class="inline-flex items-center gap-1.5">
