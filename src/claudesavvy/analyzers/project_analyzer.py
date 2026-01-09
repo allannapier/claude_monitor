@@ -282,7 +282,6 @@ class ProjectAnalyzer:
                 except Exception as e:
                     # Failed to read MCP config; log and skip
                     logger.debug(f"Failed to read MCPs from {repo_name}: {e}")
-                    pass
 
         return all_mcps, mcp_names
 
